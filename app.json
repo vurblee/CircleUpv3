@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "CircleUp",
+    "slug": "CircleUp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vurblee.CircleUp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsImpl": "mapbox"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b01e1ee9-6fea-444b-9cf9-9a92b124233d"
+<<<<<<< HEAD
+      },
+      "API_BASE_URL": "http://192.168.1.231:5000/api",
+      "SOCKET_SERVER_URL": "http://192.168.1.231:5000"
+=======
+      }
+>>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+    }
+  }
+}
