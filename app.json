@@ -4,11 +4,11 @@
     "slug": "CircleUp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/circleuplogo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/circleuplogo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -40,13 +40,9 @@
     "extra": {
       "eas": {
         "projectId": "b01e1ee9-6fea-444b-9cf9-9a92b124233d"
-<<<<<<< HEAD
       },
-      "API_BASE_URL": "http://192.168.1.231:5000/api",
-      "SOCKET_SERVER_URL": "http://192.168.1.231:5000"
-=======
-      }
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+      "awsLocationServicesKey": "v1.public.eyJqdGkiOiJkMGE0OTU4Mi0wZTdiLTQ3MmEtODBlZC1hOGZiMTQ3M2U5ZDcifaj1hiD370aLo0kNTh5rLzx8ED559ZohtzhSrp9fwm5zcSzWGuBjSx_ncmVYrMVeLG3xc2eGmJRhWhRy59rOOnntztrKv5ufZmJ6hmpb81Lr6mdi2cMknSZRi1abfHPmiI7IIKXKj4PpQmuUroH9__TWckABBQxrjfezHeWTW9A-Aogdd4KX2accEEXK1nULcmKiutN0OzhudY_M6jb6g5pAEe8iicQAoiVzD8eFGkXYfDCJMMo8d0OHjbq0jmNJMQohQqxs6QSlQ_j4vaFoPsO973zczp0jUCRGutF2KY7PSbw-SD38X8y5Twp1ELOeOGWN90d_Lozry9xZ9uqtu0E.MGFjMDA4ZmUtYWRiYy00NTgyLTg0Y2MtZTY3MzFlZDRmYTQ1",
+      "awsRegion": "us-west-2"
     }
   }
 }

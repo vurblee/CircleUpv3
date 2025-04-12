@@ -11,12 +11,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import * as Font from "expo-font";
-<<<<<<< HEAD
-import Constants from "expo-constants";
-
-const API_BASE_URL = Constants.expoConfig.extra.API_BASE_URL;
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+import apiClient from "../api/apiClient";
 
 const ForgotPassword = () => {
   const navigation = useNavigation();
@@ -24,10 +19,6 @@ const ForgotPassword = () => {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
 
-<<<<<<< HEAD
-=======
-  // Load custom font
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   const loadFonts = async () => {
     await Font.loadAsync({
       AirbnbCereal_Md: require("../../assets/fonts/AirbnbCereal_W_Md.otf"),
@@ -54,33 +45,28 @@ const ForgotPassword = () => {
     }
     setLoading(true);
     try {
-<<<<<<< HEAD
-      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
-=======
-      const response = await fetch("http://10.0.2.2:5000/api/auth/forgot-password", {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await response.json();
+      const response = await apiClient.post("/auth/forgot-password", { email });
       setLoading(false);
-      if (response.ok) {
-        Alert.alert("Success", data.message);
-        navigation.navigate("SignIn");
-      } else {
-        Alert.alert("Error", data.error || data.message || "Failed to send reset link.");
-      }
-    } catch (error) {
-      console.error("Forgot Password Error:", error);
+      Alert.alert("Success", response.data.message);
+      navigation.navigate("SignIn");
+    } catch (error: any) {
+      console.error("Forgot Password Error:", error.response?.data || error.message);
       setLoading(false);
-      Alert.alert("Error", "An error occurred. Please try again.");
+      Alert.alert(
+        "Error",
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to send reset link."
+      );
     }
   };
 
   return (
     <View style={styles.container}>
-      <Image source={require("../../assets/circleupmainlogo.png")} style={styles.logo} />
+      <Image
+        source={require("../../assets/circleupmainlogo.png")}
+        style={styles.logo}
+      />
       <Text style={styles.title}>Forgot Password?</Text>
       <Text style={styles.subtitle}>
         Enter your email and we will send you a password reset link.

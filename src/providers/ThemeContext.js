@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { defaultTheme, lightTheme, darkTheme } from "./theme";
+import { defaultTheme, lightTheme, darkTheme, blackAndWhiteTheme } from "./theme";
 
 const ThemeContext = createContext();
 
@@ -14,6 +14,8 @@ export const ThemeProvider = ({ children }) => {
         setTheme(darkTheme);
       } else if (storedTheme === "lighter") {
         setTheme(lightTheme);
+      } else if (storedTheme === "blackAndWhite") {
+        setTheme(blackAndWhiteTheme);
       } else {
         setTheme(defaultTheme);
       }
@@ -22,13 +24,19 @@ export const ThemeProvider = ({ children }) => {
   }, []);
 
   const toggleTheme = async () => {
+    // Existing toggle logic for original vs lighter themes
     const newTheme = theme.mode === "original" ? lightTheme : defaultTheme;
     setTheme(newTheme);
     await AsyncStorage.setItem("appTheme", newTheme.mode);
   };
 
+  const setAppTheme = async (newTheme) => {
+    setTheme(newTheme);
+    await AsyncStorage.setItem("appTheme", newTheme.mode);
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setAppTheme }}>
       {children}
     </ThemeContext.Provider>
   );

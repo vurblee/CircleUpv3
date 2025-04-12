@@ -22,3 +22,12 @@ export const darkTheme = {
   text: "#ffffff",
   // ... any other properties
 };
+
+// New Black and White Theme
+export const blackAndWhiteTheme = {
+  mode: "blackAndWhite",
+  background: "#000000",  // black background
+  primary: "#ffffff",     // white primary color
+  text: "#ffffff",        // white text
+  // ... any other properties if needed
+};

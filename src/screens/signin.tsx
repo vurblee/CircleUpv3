@@ -15,10 +15,7 @@ import * as Font from "expo-font";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeSocket } from "../providers/ws-client";
 import jwtDecode from "jwt-decode";
-<<<<<<< HEAD
-import Constants from "expo-constants";
-
-const API_BASE_URL = Constants.expoConfig.extra.API_BASE_URL;
+import apiClient from "../api/apiClient";
 
 const SignIn = () => {
   const navigation = useNavigation();
@@ -29,29 +26,12 @@ const SignIn = () => {
   const [loading, setLoading] = useState(false);
 
   const loadFonts = async () => {
-=======
-
-const SignIn: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [remember, setRemember] = useState<boolean>(false);
-  const [fontsLoaded, setFontsLoaded] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
-
-  // Load custom font
-  const loadFonts = async (): Promise<void> => {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     await Font.loadAsync({
       AirbnbCereal_Md: require("../../assets/fonts/AirbnbCereal_W_Md.otf"),
     });
     setFontsLoaded(true);
   };
 
-<<<<<<< HEAD
-=======
-  // On mount, load saved credentials if they exist
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   useEffect(() => {
     loadFonts();
     (async () => {
@@ -73,60 +53,27 @@ const SignIn: React.FC = () => {
     );
   }
 
-<<<<<<< HEAD
   const handleSignIn = async () => {
-=======
-  const handleSignIn = async (): Promise<void> => {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     if (!email || !password) {
       Alert.alert("Error", "Please fill in both fields.");
       return;
     }
     setLoading(true);
     try {
-<<<<<<< HEAD
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-=======
-      console.log("Sending login request");
-      const response = await fetch("http://10.0.2.2:5000/api/auth/login", {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-<<<<<<< HEAD
-      const data = await response.json();
-=======
-      const data: { token: string; message?: string; error?: string; userId?: string } = await response.json();
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-
-      if (!response.ok) {
-        throw new Error(data.message || data.error || "Login failed");
+      const response = await apiClient.post("/auth/login", { email, password });
+      // Check for response status or data as needed
+      if (!(response.status === 200 || response.status === 201)) {
+        throw new Error(response.data.message || response.data.error || "Login failed");
       }
-
-      const token = data.token;
-<<<<<<< HEAD
-      let userId = data.userId;
+      const token = response.data.token;
+      let userId = response.data.userId;
       if (!userId) {
         const decoded = jwtDecode(token);
-=======
-      let userId = data.userId; // Use userId from response if provided
-      if (!userId) {
-        // Decode token to get userId if not in response
-        const decoded: any = jwtDecode(token);
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
         userId = decoded.userId;
       }
-
       await AsyncStorage.setItem("userToken", token);
       await AsyncStorage.setItem("userId", userId);
-<<<<<<< HEAD
 
-=======
-      console.log("Token saved:", token, "User ID saved:", userId);
-
-      // If Remember Me is checked, save the email and password
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       if (remember) {
         await AsyncStorage.setItem("savedEmail", email);
         await AsyncStorage.setItem("savedPassword", password);
@@ -139,25 +86,11 @@ const SignIn: React.FC = () => {
       if (!socket) {
         throw new Error("Failed to initialize WebSocket connection");
       }
-<<<<<<< HEAD
 
-      Alert.alert("Success", data.message || "Login successful!");
-      navigation.navigate("Home");
-    } catch (error) {
-      Alert.alert("Error", error.message || "Network error. Please try again.");
-    } finally {
-=======
-      console.log("Socket initialized successfully");
-
-      Alert.alert("Success", data.message || "Login successful!");
-      console.log("Navigating to Home");
-      navigation.navigate("Home");
+      navigation.navigate("Home"); // Navigate directly to the homepage
     } catch (error: any) {
-      console.error("Sign-in error:", error);
       Alert.alert("Error", error.message || "Network error. Please try again.");
     } finally {
-      console.log("Setting loading to false in SignIn");
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       setLoading(false);
     }
   };
@@ -165,7 +98,7 @@ const SignIn: React.FC = () => {
   return (
     <View style={styles.container}>
       <Image source={require("../../assets/circleupmainlogo.png")} style={styles.logo} />
-      <Text style={styles.title}>Welcome Back</Text>
+      <Text style={styles.title}>Welcome</Text>
       <Text style={styles.subtitle}>Sign in to continue</Text>
 
       <TextInput
@@ -193,26 +126,11 @@ const SignIn: React.FC = () => {
         <Text style={styles.rememberMeText}>Remember Me</Text>
       </View>
 
-<<<<<<< HEAD
       <TouchableOpacity style={styles.forgotPassword} onPress={() => navigation.navigate("ForgotPassword")}>
         <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.signInButton} onPress={handleSignIn} disabled={loading}>
-=======
-      <TouchableOpacity
-        style={styles.forgotPassword}
-        onPress={() => navigation.navigate("ForgotPassword")}
-      >
-        <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.signInButton}
-        onPress={handleSignIn}
-        disabled={loading}
-      >
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
@@ -220,14 +138,7 @@ const SignIn: React.FC = () => {
         )}
       </TouchableOpacity>
 
-<<<<<<< HEAD
       <TouchableOpacity style={styles.signUpLink} onPress={() => navigation.navigate("SignUp")}>
-=======
-      <TouchableOpacity
-        style={styles.signUpLink}
-        onPress={() => navigation.navigate("SignUp")}
-      >
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
         <Text style={styles.signUpText}>Don't have an account? Sign Up</Text>
       </TouchableOpacity>
     </View>

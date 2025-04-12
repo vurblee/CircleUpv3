@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const http = require("http");
+const multer = require("multer");
+const path = require("path");
 const { Server } = require("socket.io");
 require("dotenv").config();
 
@@ -11,23 +13,11 @@ const authenticateUser = require("./middleware/authMiddleware");
 const app = express();
 const server = http.createServer(app);
 
-<<<<<<< HEAD
 const allowedOrigins = process.env.CLIENT_URLS?.split(",") || ["*"];
 
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-=======
-const io = new Server(server, {
-  cors: {
-    origin: [
-      "http://localhost:8081",
-      "http://10.0.2.2:5000",
-      "http://10.0.2.2:19000",
-      "http://10.0.2.2:8081",
-      "http://192.168.1.231:8081",
-    ],
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -37,49 +27,61 @@ const io = new Server(server, {
 
 const postRoutes = require("./routes/posts")(io);
 const authRoutes = require("./routes/auth");
-const notificationRoutes = require("./routes/notifications");
+const notificationRoutes = require("./routes/notifications")(io);
 const userRoutes = require("./routes/users");
-const friendsRoutes = require("./routes/friends")(io);
 const messageRoutes = require("./routes/messages")(io);
 const conversationsRoutes = require("./routes/conversations");
+const locationsRoutes = require("./routes/locations");
+const friendsRoutes = require("./routes/friends")(io);
+const uploadRoutes = require("./routes/upload");
 
 app.use(express.json());
 app.use(
   cors({
-<<<<<<< HEAD
     origin: allowedOrigins,
-=======
-    origin: [
-      "http://localhost:8081",
-      "http://10.0.2.2:5000",
-      "http://10.0.2.2:8081",
-      "http://10.0.2.2:19006",
-      "http://192.168.1.231:8081",
-    ],
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 app.use(morgan("dev"));
 
-<<<<<<< HEAD
 app.use('/uploads', express.static("uploads"));
 
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, `banner_${Date.now()}${path.extname(file.originalname)}`);
+  },
+});
+const upload = multer({ storage });
+
+// Upload route
+app.post("/api/upload", authenticateUser, upload.single("image"), (req, res) => {
+  console.log("Upload route requested");
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    const fileUrl = `http://0.0.0.0:5000/uploads/${req.file.filename}`;
+    res.status(200).json({ url: fileUrl });
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Test database connection on startup
 pool.query("SELECT NOW()", (err, res) => {
   if (err) {
     console.error("❌ Database connection failed:", err.stack);
     process.exit(1);
   } else {
-<<<<<<< HEAD
     if (process.env.NODE_ENV !== "production") {
       console.log("✅ Database Connected Successfully at:", res.rows[0].now);
     }
-=======
-    console.log("✅ Database Connected Successfully at:", res.rows[0].now);
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   }
 });
 
@@ -118,17 +120,21 @@ app.use("/api/friends", friendsRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
-app.use("/api/notifications", notificationRoutes);
+app.use("/api/notifications", notificationRoutes.router);
 app.use("/api/users", userRoutes);
 app.use("/api/conversations", conversationsRoutes);
+app.use("/api/locations", locationsRoutes);
+app.use("/api/upload", uploadRoutes);
 
 app.get("/", (req, res) => {
+  console.log("Root route requested");
   res.send("✅ CircleUp Backend is Running!");
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running with WebSockets on port ${PORT}`);
+  console.log("JWT_SECRET loaded:", process.env.JWT_SECRET ? "Yes" : "No");
   console.log("Registered routes:");
   app._router.stack.forEach((r) => {
     if (r.route && r.route.path) {
@@ -142,8 +148,4 @@ server.listen(PORT, "0.0.0.0", () => {
       });
     }
   });
-<<<<<<< HEAD
 });
-=======
-});
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b

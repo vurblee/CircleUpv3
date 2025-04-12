@@ -7,38 +7,33 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-<<<<<<< HEAD
   Dimensions,
   StatusBar,
   Platform,
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-<<<<<<< HEAD
 import Header from "../components/header"; // import your Header component
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+import apiClient from "../api/apiClient";
+import { useTheme } from "../providers/ThemeContext"; // Import useTheme
 
 type TabType = "upcoming" | "past" | "rsvp";
 
 const EventsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const { theme } = useTheme(); // Access the current theme
+  const styles = createStyles(theme); // Pass the theme to the styles
+
   const [selectedTab, setSelectedTab] = useState<TabType>("upcoming");
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [pastEvents, setPastEvents] = useState<any[]>([]);
   const [rsvpRequests, setRsvpRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingRsvp, setLoadingRsvp] = useState<boolean>(false);
-<<<<<<< HEAD
   const [deleteMode, setDeleteMode] = useState<boolean>(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [selectedForDeletion, setSelectedForDeletion] = useState<string[]>([]);
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -46,41 +41,18 @@ const EventsScreen: React.FC = () => {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
         navigation.navigate("SignIn");
-<<<<<<< HEAD
         setLoading(false);
         return;
       }
       const [upcomingRes, pastRes] = await Promise.all([
-        axios.get("http://192.168.1.231:5000/api/posts/upcoming-events", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get("http://192.168.1.231:5000/api/posts/past-events", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        apiClient.get("/posts/upcoming-events"),
+        apiClient.get("/posts/past-events"),
       ]);
       setUpcomingEvents(upcomingRes.data || []);
       setPastEvents(pastRes.data || []);
     } catch (error: any) {
       console.error("Error fetching events:", error.response?.data || error.message);
       Alert.alert("Error", "Unable to fetch events. Please try again.");
-=======
-        return;
-      }
-      // Fetch upcoming events
-      const upcomingRes = await axios.get("http://10.0.2.2:5000/api/posts/upcoming-events", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUpcomingEvents(upcomingRes.data);
-
-      // Fetch past events
-      const pastRes = await axios.get("http://10.0.2.2:5000/api/posts/past-events", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPastEvents(pastRes.data);
-    } catch (error: any) {
-      console.error("Error fetching events:", error.response?.data || error.message);
-      Alert.alert("Error", "Unable to fetch events.");
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     } finally {
       setLoading(false);
     }
@@ -92,22 +64,11 @@ const EventsScreen: React.FC = () => {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
         navigation.navigate("SignIn");
-<<<<<<< HEAD
         setLoadingRsvp(false);
         return;
       }
-      const response = await axios.get("http://192.168.1.231:5000/api/posts/rsvp-requests", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiClient.get("/posts/rsvp-requests");
       setRsvpRequests(response.data || []);
-=======
-        return;
-      }
-      const response = await axios.get("http://10.0.2.2:5000/api/posts/rsvp-requests", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setRsvpRequests(response.data);
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     } catch (error: any) {
       console.error("Error fetching RSVP requests:", error.response?.data || error.message);
       Alert.alert("Error", "Unable to fetch RSVP requests.");
@@ -118,49 +79,45 @@ const EventsScreen: React.FC = () => {
 
   useEffect(() => {
     fetchEvents();
-<<<<<<< HEAD
   }, []);
 
   useEffect(() => {
-=======
-    // If the RSVP tab is selected, fetch RSVP requests
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     if (selectedTab === "rsvp") {
       fetchRsvpRequests();
     }
   }, [selectedTab]);
 
-<<<<<<< HEAD
   useEffect(() => {
     AsyncStorage.getItem("currentUserId").then((id) => {
       if (id) setCurrentUserId(id);
     });
   }, []);
 
-  const handleRsvpDecision = async (postId: string, requesterId: string, action: "approve" | "deny") => {
+  const handleRsvpDecision = async (
+    postId: string,
+    requesterId: string,
+    action: "approve" | "deny"
+  ) => {
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
         navigation.navigate("SignIn");
         return;
       }
-      await axios.post(
-        `http://192.168.1.231:5000/api/posts/${postId}/rsvp/manage`,
-=======
-  const handleRsvpDecision = async (postId: string, requesterId: string, action: "approve" | "deny") => {
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      await axios.post(
-        `http://10.0.2.2:5000/api/posts/${postId}/rsvp/manage`,
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        { userIdToManage: requesterId, action },
-        { headers: { Authorization: `Bearer ${token}` } }
+      // Make the API call to manage the RSVP
+      const response = await apiClient.post(`/posts/${postId}/rsvp/manage`, { userIdToManage: requesterId, action });
+      
+      // Find the event title from rsvpRequests
+      const rsvpRequest = rsvpRequests.find((req) => req.post_id === postId && req.requester_id === requesterId);
+      const eventTitle = rsvpRequest?.event_title || "the event";
+
+      // Show confirmation to the event creator and notify them that the requester has been notified
+      Alert.alert(
+        "Success",
+        `RSVP ${action}d successfully! The user has been notified of your decision for "${eventTitle}".`
       );
-      Alert.alert("Success", `RSVP ${action}d successfully!`);
-<<<<<<< HEAD
-=======
-      // Refresh RSVP requests list
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+
+      // Refresh the RSVP requests list
       fetchRsvpRequests();
     } catch (error: any) {
       console.error("Error managing RSVP:", error.response?.data || error.message);
@@ -168,7 +125,6 @@ const EventsScreen: React.FC = () => {
     }
   };
 
-<<<<<<< HEAD
   const handleDeleteEvent = async (eventId: string) => {
     try {
       const token = await AsyncStorage.getItem("userToken");
@@ -176,12 +132,10 @@ const EventsScreen: React.FC = () => {
         navigation.navigate("SignIn");
         return;
       }
-      await axios.delete(`http://192.168.1.231:5000/api/posts/${eventId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await apiClient.delete(`/posts/${eventId}`);
       // Remove the event from the respective list:
-      setUpcomingEvents(prev => prev.filter(event => event.id !== eventId));
-      setPastEvents(prev => prev.filter(event => event.id !== eventId));
+      setUpcomingEvents((prev) => prev.filter((event) => event.id !== eventId));
+      setPastEvents((prev) => prev.filter((event) => event.id !== eventId));
     } catch (error: any) {
       console.error("Error deleting event:", error.response?.data || error.message);
       Alert.alert("Error", "Could not delete event.");
@@ -190,6 +144,16 @@ const EventsScreen: React.FC = () => {
 
   const renderEvent = ({ item }: { item: any }) => {
     const isSelected = selectedForDeletion.includes(item.id);
+    const eventDate = new Date(item.event_date);
+    const formattedDate = eventDate.toLocaleString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
     return (
       <TouchableOpacity
         style={styles.eventCard}
@@ -197,9 +161,7 @@ const EventsScreen: React.FC = () => {
           if (deleteMode) {
             // Toggle selection for deletion
             if (isSelected) {
-              setSelectedForDeletion((prev) =>
-                prev.filter((id) => id !== item.id)
-              );
+              setSelectedForDeletion((prev) => prev.filter((id) => id !== item.id));
             } else {
               setSelectedForDeletion((prev) => [...prev, item.id]);
             }
@@ -209,55 +171,57 @@ const EventsScreen: React.FC = () => {
         }}
       >
         {deleteMode && (
-          <Text style={styles.checkbox}>
-            {isSelected ? "[✓]" : "[ ]"}
-          </Text>
+          <Text style={styles.checkbox}>{isSelected ? "[✓]" : "[ ]"}</Text>
         )}
-        <Text style={styles.eventTitle}>{item.title}</Text>
-        <Text style={styles.eventDate}>{item.event_date}</Text>
+        <Text
+          style={[
+            styles.eventTitle,
+            theme.mode === "blackAndWhite" && { color: "#000" }, // Black text in black-and-white mode
+          ]}
+        >
+          {item.title}
+        </Text>
+        <Text style={styles.eventDate}>{formattedDate}</Text>
       </TouchableOpacity>
     );
   };
-=======
-  const renderEvent = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.eventCard}
-      onPress={() => navigation.navigate("EventDetails", { eventId: item.id, event: item })}
-    >
-      <Text style={styles.eventTitle}>{item.title}</Text>
-      <Text style={styles.eventDate}>{item.event_date}</Text>
-      {/* Additional event details can be added here */}
-    </TouchableOpacity>
-  );
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
 
-  const renderRsvpRequest = ({ item }: { item: any }) => (
-    <View style={styles.rsvpCard}>
-      <Text style={styles.eventTitle}>{item.event_title}</Text>
-      <Text style={styles.eventDate}>{item.event_date}</Text>
-      <Text style={styles.requestInfo}>
-        RSVP from {item.requester_username}
-      </Text>
-      <View style={styles.rsvpButtonsContainer}>
-        <TouchableOpacity
-          style={[styles.rsvpButton, { backgroundColor: "#0A58CA" }]}
-          onPress={() => handleRsvpDecision(item.post_id, item.requester_id, "approve")}
-        >
-          <Text style={styles.rsvpButtonText}>Approve</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.rsvpButton, { backgroundColor: "#FF4444" }]}
-          onPress={() => handleRsvpDecision(item.post_id, item.requester_id, "deny")}
-        >
-          <Text style={styles.rsvpButtonText}>Deny</Text>
-        </TouchableOpacity>
+  const renderRsvpRequest = ({ item }: { item: any }) => {
+    const eventDate = new Date(item.event_date);
+    const formattedDate = eventDate.toLocaleString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    return (
+      <View style={styles.rsvpCard}>
+        <Text style={styles.eventTitle}>{item.event_title}</Text>
+        <Text style={styles.eventDate}>{formattedDate}</Text>
+        <Text style={styles.requestInfo}>RSVP from {item.requester_username}</Text>
+        <View style={styles.rsvpButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.rsvpButton, styles.approveButton]} // Green approve button
+            onPress={() => handleRsvpDecision(item.post_id, item.requester_id, "approve")}
+          >
+            <Text style={styles.rsvpButtonText}>Approve</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.rsvpButton, { backgroundColor: "#FF4444" }]}
+            onPress={() => handleRsvpDecision(item.post_id, item.requester_id, "deny")}
+          >
+            <Text style={styles.rsvpButtonText}>Deny</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   let content;
   if (loading) {
-<<<<<<< HEAD
     content = (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0A58CA" />
@@ -290,7 +254,10 @@ const EventsScreen: React.FC = () => {
             data={pastEvents}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderEvent}
-            contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 0 }}
+            contentContainerStyle={{
+              paddingBottom: 80,
+              alignItems: "center", // Centers the events horizontally
+            }}
             style={{ width: "100%", marginHorizontal: 0, overflow: "visible" }}
           />
         ) : (
@@ -317,57 +284,11 @@ const EventsScreen: React.FC = () => {
             <Text style={styles.contentText}>No RSVP Requests</Text>
           </View>
         );
-=======
-    content = <ActivityIndicator size="large" color="#0A58CA" />;
-  } else {
-    if (selectedTab === "upcoming") {
-      content = upcomingEvents.length > 0 ? (
-        <FlatList
-          data={upcomingEvents}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderEvent}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        />
-      ) : (
-        <View style={styles.contentContainer}>
-          <Text style={styles.contentText}>No Upcoming Events</Text>
-        </View>
-      );
-    } else if (selectedTab === "past") {
-      content = pastEvents.length > 0 ? (
-        <FlatList
-          data={pastEvents}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderEvent}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        />
-      ) : (
-        <View style={styles.contentContainer}>
-          <Text style={styles.contentText}>No Past Events</Text>
-        </View>
-      );
-    } else if (selectedTab === "rsvp") {
-      content = loadingRsvp ? (
-        <ActivityIndicator size="large" color="#0A58CA" />
-      ) : rsvpRequests.length > 0 ? (
-        <FlatList
-          data={rsvpRequests}
-          keyExtractor={(item) => item.rsvp_id.toString()}
-          renderItem={renderRsvpRequest}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        />
-      ) : (
-        <View style={styles.contentContainer}>
-          <Text style={styles.contentText}>No RSVP Requests</Text>
-        </View>
-      );
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     }
   }
 
   return (
     <View style={styles.container}>
-<<<<<<< HEAD
       {/* White container covering header & tabs area */}
       <View style={styles.topContainer}>
         <Header
@@ -383,36 +304,46 @@ const EventsScreen: React.FC = () => {
           }}
           rightComponent={
             deleteMode ? (
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => {
-                  if (selectedForDeletion.length > 0) {
-                    Alert.alert(
-                      "Delete Events",
-                      `Are you sure you want to delete ${selectedForDeletion.length} event(s)?`,
-                      [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                          text: "Delete",
-                          onPress: async () => {
-                            for (const eventId of selectedForDeletion) {
-                              await handleDeleteEvent(eventId);
-                            }
-                            setDeleteMode(false);
-                            setSelectedForDeletion([]);
+              <View>
+                <TouchableOpacity
+                  style={styles.menuButton}
+                  onPress={() => {
+                    if (selectedForDeletion.length > 0) {
+                      Alert.alert(
+                        "Delete Events",
+                        `Are you sure you want to delete ${selectedForDeletion.length} event(s)?`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Delete",
+                            onPress: async () => {
+                              for (const eventId of selectedForDeletion) {
+                                await handleDeleteEvent(eventId);
+                              }
+                              setDeleteMode(false);
+                              setSelectedForDeletion([]);
+                            },
+                            style: "destructive",
                           },
-                          style: "destructive",
-                        },
-                      ]
-                    );
-                  } else {
-                    // If nothing is selected, simply exit delete mode
+                        ]
+                      );
+                    } else {
+                      setDeleteMode(false);
+                    }
+                  }}
+                >
+                  <Text style={styles.deleteText}>Delete</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
                     setDeleteMode(false);
-                  }
-                }}
-              >
-                <Text style={styles.deleteText}>Delete</Text>
-              </TouchableOpacity>
+                    setSelectedForDeletion([]);
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <TouchableOpacity
                 style={styles.menuButton}
@@ -462,260 +393,254 @@ const EventsScreen: React.FC = () => {
       <View style={styles.eventsContainer}>{content}</View>
 
       {/* Explore Events Button */}
-      <TouchableOpacity style={styles.exploreButton} onPress={() => navigation.navigate("Explore")}>
-=======
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-          <Text style={styles.headerTitle}>Events</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuButton}>
-          <Ionicons name="ellipsis-vertical" size={24} color="#000" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Tab Selector */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabButton, selectedTab === "upcoming" && styles.activeTab]}
-          onPress={() => setSelectedTab("upcoming")}
+      <TouchableOpacity
+        style={[
+          styles.exploreButton,
+          theme.mode === "blackAndWhite"
+            ? { backgroundColor: "#000" } // Black button in black-and-white mode
+            : { backgroundColor: theme.primary }, // Use theme.primary for light mode
+        ]}
+        onPress={() => navigation.navigate("Explore")}
+      >
+        <Text
+          style={[
+            styles.exploreButtonText,
+            theme.mode === "blackAndWhite"
+              ? { color: "#fff" } // White text in black-and-white mode
+              : { color: "#fff" }, // White text for light mode
+          ]}
         >
-          <Text style={selectedTab === "upcoming" ? styles.activeTabText : styles.tabText}>Upcoming</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, selectedTab === "past" && styles.activeTab]}
-          onPress={() => setSelectedTab("past")}
-        >
-          <Text style={selectedTab === "past" ? styles.activeTabText : styles.tabText}>Past</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, selectedTab === "rsvp" && styles.activeTab]}
-          onPress={() => setSelectedTab("rsvp")}
-        >
-          <Text style={selectedTab === "rsvp" ? styles.activeTabText : styles.tabText}>RSVP Requests</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Content */}
-      {content}
-
-      {/* Explore Events Button */}
-      <TouchableOpacity style={styles.exploreButton} onPress={() => navigation.navigate("Home")}>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        <Text style={styles.exploreButtonText}>Explore Events</Text>
-        <View style={styles.arrowContainer}>
-          <Ionicons name="arrow-forward" size={16} color="#669dff" />
-        </View>
+          Explore Events
+        </Text>
+        {theme.mode !== "blackAndWhite" && ( // Render arrow only in light mode
+          <View style={styles.arrowContainer}>
+            <Ionicons
+              name="arrow-forward"
+              size={16}
+              style={[
+                styles.arrowIcon,
+                { color: theme.primary }, // Light blue arrow for light mode
+              ]}
+            />
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );
 };
 
-<<<<<<< HEAD
 const windowWidth = Dimensions.get("window").width;
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    alignItems: "stretch",
-  },
-  contentWrapper: {
-    marginTop: 20, // reduced from 50
-    flex: 1,
-  },
-  menuButton: { padding: 5 },
-  editText: {
-    color: "#0A58CA",
-    fontSize: 16,
-    fontFamily: "AirbnbCereal_Md",
-  },
-  deleteText: {
-    color: "red",
-    fontSize: 16,
-    fontFamily: "AirbnbCereal_Md",
-    marginLeft: 15,
-  },
-  tabContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 20,
-    marginBottom: 5,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 30,
-    padding: 3,
-    marginHorizontal: 20,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 25,
-  },
-  tabText: { 
-    color: "#888", 
-    fontSize: 16, 
-    fontFamily: "AirbnbCereal_Md" 
-  },
-  activeTab: { 
-    backgroundColor: "#fff", 
-    borderRadius: 25 
-  },
-  activeTabText: { 
-    color: "#0A58CA", 
-    fontSize: 16, 
-    fontFamily: "AirbnbCereal_Md" 
-  },
-  contentContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  contentText: {
-    fontSize: 18,
-    color: "#333",
-    marginTop: 20,
-    fontFamily: "AirbnbCereal_Md",
-  },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-=======
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingHorizontal: 20, paddingTop: 40 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 },
-  backButton: { flexDirection: "row", alignItems: "center" },
-  headerTitle: { fontSize: 18, marginLeft: 10, color: "#000" },
-  menuButton: { padding: 5 },
-  tabContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 20,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 30,
-    padding: 2,
-  },
-  tabButton: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 25 },
-  tabText: { color: "#888", fontSize: 16 },
-  activeTab: { backgroundColor: "#fff", borderRadius: 25 },
-  activeTabText: { color: "#0A58CA", fontSize: 16 },
-  contentContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  contentText: { fontSize: 18, color: "#333", marginTop: 20 },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-  exploreButton: {
-    backgroundColor: "#0A58CA",
-    paddingVertical: 18,
-    borderRadius: 25,
-    alignItems: "center",
-    marginBottom: 20,
-    flexDirection: "row",
-    justifyContent: "center",
-<<<<<<< HEAD
-    position: "absolute",
-    bottom: 30,
-    left: 20,
-    right: 20,
-  },
-  exploreButtonText: { color: "#fff", fontSize: 16, marginRight: 10, fontFamily: "AirbnbCereal_Md" },
-=======
-  },
-  exploreButtonText: { color: "#fff", fontSize: 16, marginRight: 10 },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-  arrowContainer: {
-    width: 24,
-    height: 24,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "absolute",
-    right: 15,
-  },
-  eventCard: {
-<<<<<<< HEAD
-    width: windowWidth - 40,
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-    padding: 15,
-    borderRadius: 10,
-    backgroundColor: "#fff",
-    marginBottom: 15,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-<<<<<<< HEAD
-  eventTitle: { fontSize: 16, color: "#0A58CA", marginBottom: 5, fontFamily: "AirbnbCereal_Md" },
-  eventDate: { fontSize: 14, color: "#333", fontFamily: "AirbnbCereal_Lt" },
-=======
-  eventTitle: { fontSize: 16, color: "#0A58CA", marginBottom: 5 },
-  eventDate: { fontSize: 14, color: "#333" },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-  rsvpCard: {
-    padding: 15,
-    borderRadius: 10,
-    backgroundColor: "#fff",
-    marginBottom: 15,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-<<<<<<< HEAD
-  requestInfo: {
-    fontSize: 14,
-    color: "#666",
-    marginVertical: 5,
-    fontFamily: "AirbnbCereal_Lt",
-  },
-  rsvpButtonsContainer: { flexDirection: "row", justifyContent: "space-around", marginTop: 10 },
-  rsvpButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 5 },
-  rsvpButtonText: { color: "#fff", fontSize: 14, fontFamily: "AirbnbCereal_Md" },
-  topContainer: {
-    backgroundColor: "#fff",
-    paddingBottom: 10,
-    zIndex: 1,
-    borderBottomWidth: 0, // Ensure no border properties are present
-    borderBottomColor: "transparent", // Ensure no border properties are present
-  },
-  eventsContainer: {
-    flex: 1,
-    marginTop: 10,
-  },
-  deleteButton: {
-    position: "absolute",
-    top: 5,
-    right: 5,
-  },
-  selectionOverlay: {
-    position: "absolute",
-    top: 5,
-    left: 5,
-  },
-  checkboxContainer: {
-    position: "absolute",
-    top: 5,
-    right: 5,
-    width: 24,
-    height: 24,
-    borderWidth: 1,
-    borderColor: "#0A58CA",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 4,
-  },
-  checkbox: {
-    fontSize: 18,
-    marginRight: 8,
-    color: "#0A58CA",
-  },
-});
+const createStyles = (theme: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: "#fff",
+      alignItems: "stretch",
+    },
+    contentWrapper: {
+      marginTop: 20, // reduced from 50
+      flex: 1,
+    },
+    menuButton: {
+      padding: 0, // Removed padding
+      backgroundColor: "transparent", // Ensure no background
+    },
+    editText: {
+      color: "#000", // Black text for Edit
+      fontSize: 16,
+      fontFamily: "AirbnbCereal_Md",
+    },
+    deleteText: {
+      color: "red", // Red text for Delete
+      fontSize: 16,
+      fontFamily: "AirbnbCereal_Md",
+      marginLeft: 0, // Ensure no extra margin
+    },
+    cancelButton: {
+      marginTop: 5, // Positioned below Delete
+      padding: 0, // Removed padding
+      backgroundColor: "transparent", // Ensure no background
+    },
+    cancelButtonText: {
+      fontSize: 16,
+      color: "#000", // Black text for Cancel
+      fontFamily: "AirbnbCereal_Md",
+      marginLeft: 0, // Ensure no extra margin
+    },
+    tabContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      marginTop: 20,
+      marginBottom: 5,
+      backgroundColor: "#f0f0f0",
+      borderRadius: 30,
+      padding: 3,
+      marginHorizontal: 20,
+    },
+    tabButton: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: "center",
+      borderRadius: 25,
+    },
+    tabText: {
+      color: "#000", // Changed to black
+      fontSize: 16,
+      fontFamily: "AirbnbCereal_Md",
+    },
+    activeTab: {
+      backgroundColor: "#fff",
+      borderRadius: 25,
+    },
+    activeTabText: {
+      color: "#000", // Changed to black
+      fontSize: 16,
+      fontFamily: "AirbnbCereal_Md",
+    },
+    contentContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    contentText: {
+      fontSize: 18,
+      color: "#333",
+      marginTop: 20,
+      fontFamily: "AirbnbCereal_Md",
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    exploreButton: {
+      backgroundColor: "#0A58CA",
+      paddingVertical: 18,
+      borderRadius: 25,
+      alignItems: "center",
+      marginBottom: 20,
+      flexDirection: "row",
+      justifyContent: "center",
+      position: "absolute",
+      bottom: 30,
+      left: 20,
+      right: 20,
+    },
+    exploreButtonText: {
+      color: "#fff",
+      fontSize: 16,
+      paddingRight: 0,
+      fontFamily: "AirbnbCereal_Md",
+    },
+    arrowContainer: {
+      width: 24,
+      height: 24,
+      backgroundColor: "#fff", // White circle
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: 10, // Space between text and arrow
+    },
+    arrowIcon: {
+      color: theme.primary, // Light blue arrow for light mode
+    },
+    eventCard: {
+      width: windowWidth - 40,
+      padding: 15,
+      borderRadius: 10,
+      backgroundColor: "#fff",
+      marginBottom: 15,
+      elevation: 2,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+    eventTitle: {
+      fontSize: 16,
+      color: "#000", // Changed to black
+      marginBottom: 5,
+      fontFamily: "AirbnbCereal_Md",
+    },
+    eventDate: {
+      fontSize: 14,
+      color: "#333",
+      fontFamily: "AirbnbCereal_Lt",
+    },
+    rsvpCard: {
+      padding: 15,
+      borderRadius: 10,
+      backgroundColor: "#fff",
+      marginBottom: 15,
+      elevation: 2,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+    requestInfo: {
+      fontSize: 14,
+      color: "#666",
+      marginVertical: 5,
+      fontFamily: "AirbnbCereal_Lt",
+    },
+    rsvpButtonsContainer: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+      marginTop: 10,
+    },
+    rsvpButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 5,
+    },
+    rsvpButtonText: {
+      color: "#fff",
+      fontSize: 14,
+      fontFamily: "AirbnbCereal_Md",
+    },
+    approveButton: {
+      backgroundColor: "#28a745", // Green for approve button
+    },
+    topContainer: {
+      backgroundColor: "#fff",
+      paddingBottom: 10,
+      zIndex: 1,
+      borderBottomWidth: 0,
+      borderBottomColor: "transparent",
+    },
+    eventsContainer: {
+      flex: 1,
+      marginTop: 10,
+    },
+    deleteButton: {
+      position: "absolute",
+      top: 5,
+      right: 5,
+    },
+    selectionOverlay: {
+      position: "absolute",
+      top: 5,
+      left: 5,
+    },
+    checkboxContainer: {
+      position: "absolute",
+      top: 5,
+      right: 5,
+      width: 24,
+      height: 24,
+      borderWidth: 1,
+      borderColor: "#0A58CA",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 4,
+    },
+    checkbox: {
+      fontSize: 18,
+      marginRight: 8,
+      color: "#000", // Changed to black
+    },
+  });
 
 export default EventsScreen;
-=======
-  requestInfo: { fontSize: 14, color: "#666", marginVertical: 5 },
-  rsvpButtonsContainer: { flexDirection: "row", justifyContent: "space-around", marginTop: 10 },
-  rsvpButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 5 },
-  rsvpButtonText: { color: "#fff", fontSize: 14 },
-});
-
-export default EventsScreen;
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b

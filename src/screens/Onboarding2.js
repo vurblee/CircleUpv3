@@ -12,14 +12,10 @@ const Onboarding2 = () => {
 
   return (
     <View style={styles.container}>
-<<<<<<< HEAD
       <Image 
         source={require("../../assets/onboardingphone22.png")} 
         style={styles.image} 
       />
-=======
-      <Image source={require("../../assets/onboardingphone22.png")} style={styles.image} />
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       <Text style={styles.text}>
         Host Your Own Events and Explore Integration and Scheduling with Ease
       </Text>
@@ -49,17 +45,12 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "70%",
     resizeMode: "contain",
-<<<<<<< HEAD
     alignSelf: "center",
-=======
-    paddingLeft: 80,
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   },
   text: {
     fontSize: 20,
     textAlign: "center",
     paddingHorizontal: 30,
-<<<<<<< HEAD
     color: "#0A58CA",
     marginTop: 25,
     fontWeight: "600",
@@ -67,14 +58,6 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: "#0A58CA",
-=======
-    color: "#4169E1",
-    marginTop: 25,
-    fontWeight: "600",
-  },
-  button: {
-    backgroundColor: "#4169E1",
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     paddingVertical: 12,
     paddingHorizontal: 35,
     borderRadius: 25,
@@ -88,10 +71,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
-<<<<<<< HEAD
     fontFamily: "AirbnbCereal", // Updated to Airbnb font
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   },
 });
 

@@ -1,73 +1,87 @@
 import React, { useEffect, useRef } from "react";
-import { View, Image, StyleSheet, Animated, Easing } from "react-native";
+import { View, StyleSheet, Animated, Easing } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
 const SplashScreen = () => {
   const navigation = useNavigation();
 
-  // Animated values
-  const slideAnim = useRef(new Animated.Value(200)).current; // Starts off-screen (right)
-  const scaleAnim = useRef(new Animated.Value(1.2)).current; // Slightly larger start
-  const fadeAnim = useRef(new Animated.Value(1)).current; // Fully visible
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const translateXAnim = useRef(new Animated.Value(200)).current;
+  const entryScaleAnim = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    Animated.sequence([
-      // Slide in smoothly
-      Animated.timing(slideAnim, {
-        toValue: 0, // Moves to center
-        duration: 600, // Quick & premium feel
-        easing: Easing.out(Easing.exp), // Smooth ease-out effect
+    // Start the entry spin (fast spin while sliding in)
+    Animated.parallel([
+      Animated.timing(translateXAnim, {
+        toValue: 0,
+        duration: 600,
+        easing: Easing.out(Easing.exp),
         useNativeDriver: true,
       }),
-      // Bobble effect with bounce
-      Animated.timing(scaleAnim, {
-        toValue: 1.1, // Slight overshoot
-        duration: 150,
-        easing: Easing.out(Easing.ease),
+      Animated.timing(entryScaleAnim, {
+        toValue: 1,
+        duration: 600,
+        easing: Easing.out(Easing.exp),
         useNativeDriver: true,
       }),
-      Animated.timing(scaleAnim, {
-        toValue: 1, // Settle back
-        duration: 200,
-        easing: Easing.out(Easing.ease),
+      Animated.timing(spinAnim, {
+        toValue: 2, // ~2 full spins during entry
+        duration: 600,
+        easing: Easing.linear,
         useNativeDriver: true,
       }),
-      // Hold position briefly before shrink
-      Animated.delay(400),
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 0.7, // Shrinks down
-          duration: 400,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0, // Fade out
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]),
     ]).start(() => {
-      navigation.replace("Onboarding1"); // Navigate to first onboarding screen
+      // After entry, slow down to stop at target angle
+      Animated.sequence([
+        Animated.timing(spinAnim, {
+          toValue: 2.975, // final resting position
+          duration: 900,
+          easing: Easing.out(Easing.exp), // smooth slow down
+          useNativeDriver: true,
+        }),
+        Animated.delay(500),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        navigation.replace("SignIn");
+      });
     });
   }, []);
 
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  const sharedStyle = {
+    transform: [{ translateX: translateXAnim }, { scale: entryScaleAnim }],
+    opacity: fadeAnim,
+  };
+
   return (
     <View style={styles.container}>
-      <Animated.Image
-        source={require("../../assets/circleupmainlogo.png")}
-        style={[
-          styles.logo,
-          {
-<<<<<<< HEAD
-            marginLeft: 2.5,  // Shift logo 2.5pt to the right
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-            transform: [{ translateX: slideAnim }, { scale: scaleAnim }],
-            opacity: fadeAnim,
-          },
-        ]}
-      />
+      <View style={styles.logoContainer}>
+        {/* Outer Ring */}
+        <Animated.Image
+          source={require("../../assets/circlerings2_centered.png")}
+          style={[styles.baseImage, sharedStyle]}
+        />
+
+        {/* Spinning Inner Ring */}
+        <Animated.View
+          style={[styles.spinWrapper, { transform: [{ rotate: spin }] }]}
+        >
+          <Animated.Image
+            source={require("../../assets/circleuprings_perfectly_centered.png")}
+            style={[styles.spinImage, sharedStyle]}
+          />
+        </Animated.View>
+      </View>
     </View>
   );
 };
@@ -79,16 +93,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  logo: {
-    width: 160,
-    height: 160,
+  logoContainer: {
+    position: "relative",
+    width: 200,
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  baseImage: {
+    width: 130,
+    height: 130,
     resizeMode: "contain",
-    shadowColor: "#4169E1", // Premium soft glow effect
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5, // Crisp depth effect
+    position: "absolute",
+    marginBottom: 20,
+  },
+  spinWrapper: {
+    width: 80,
+    height: 80,
+    position: "absolute",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  spinImage: {
+    width: 80,
+    height: 80,
+    resizeMode: "contain",
   },
 });
 
 export default SplashScreen;
-

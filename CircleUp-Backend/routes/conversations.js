@@ -16,7 +16,6 @@ router.get("/", authenticateUser, async (req, res) => {
       SELECT 
         c.conversation_id, 
         c.last_updated,
-<<<<<<< HEAD
         u.id AS partner_id,
         u.username AS friend_username,
         u.is_online AS friend_online
@@ -25,31 +24,6 @@ router.get("/", authenticateUser, async (req, res) => {
       JOIN conversation_participants cp2 ON cp2.conversation_id = c.conversation_id AND cp2.user_id <> $1
       JOIN users u ON u.id = cp2.user_id
       WHERE cp1.user_id = $1 AND cp1.is_deleted = false
-=======
-        (
-          SELECT cp.user_id 
-          FROM conversation_participants cp 
-          WHERE cp.conversation_id = c.conversation_id AND cp.user_id <> $1
-          LIMIT 1
-        ) AS partner_id,
-        (
-          SELECT u.username 
-          FROM conversation_participants cp2
-          JOIN users u ON u.id = cp2.user_id
-          WHERE cp2.conversation_id = c.conversation_id AND cp2.user_id <> $1
-          LIMIT 1
-        ) AS friend_username,
-        (
-          SELECT u2.is_online 
-          FROM conversation_participants cp3
-          JOIN users u2 ON u2.id = cp3.user_id
-          WHERE cp3.conversation_id = c.conversation_id AND cp3.user_id <> $1
-          LIMIT 1
-        ) AS friend_online
-      FROM conversations c
-      JOIN conversation_participants cp ON cp.conversation_id = c.conversation_id
-      WHERE cp.user_id = $1 AND cp.is_deleted = false
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       ORDER BY c.last_updated DESC
     `;
     const result = await pool.query(query, [userId]);
@@ -139,6 +113,68 @@ router.delete("/:conversationId/permanent", authenticateUser, async (req, res) =
     });
   } catch (error) {
     console.error("Error permanently deleting conversation:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * GET /api/messages/conversation/:conversationId
+ * Retrieves messages for a given conversation ID, including partner info.
+ */
+router.get("/conversation/:conversationId", authenticateUser, async (req, res) => {
+  try {
+    const conversationId = req.params.conversationId;
+    const loggedInUser = req.user.userId;
+
+    console.log(`Fetching messages for conversationId: ${conversationId}, loggedInUser: ${loggedInUser}`);
+
+    // Check if the conversation is marked deleted for this user.
+    const cpResult = await pool.query(
+      "SELECT * FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2",
+      [conversationId, loggedInUser]
+    );
+    if (cpResult.rows.length && cpResult.rows[0].is_deleted) {
+      console.log(`Conversation ${conversationId} is deleted for user ${loggedInUser}`);
+      return res.status(200).json([]);
+    }
+
+    // Ensure the conversation exists.
+    const convResult = await pool.query(
+      "SELECT * FROM conversations WHERE conversation_id = $1",
+      [conversationId]
+    );
+    if (convResult.rows.length === 0) {
+      console.log(`Conversation ${conversationId} does not exist`);
+      return res.status(200).json([]);
+    }
+
+    // Fetch messages and partner info.
+    const query = `
+      SELECT 
+        m.*,
+        u.id AS partner_id,
+        u.username AS partner_username
+      FROM messages m
+      LEFT JOIN conversation_participants cp 
+        ON cp.conversation_id = m.conversation_id 
+        AND cp.user_id != $1
+      LEFT JOIN users u 
+        ON u.id = cp.user_id
+      WHERE m.conversation_id = $1
+      ORDER BY m.created_at ASC
+    `;
+    const { rows } = await pool.query(query, [conversationId, loggedInUser]);
+
+    if (rows.length > 0) {
+      console.log(`Fetched ${rows.length} messages for conversation ${conversationId}`);
+      console.log(`Partner ID: ${rows[0].partner_id}, Partner Username: ${rows[0].partner_username}`);
+    } else {
+      console.log(`No messages found for conversation ${conversationId}`);
+    }
+
+    return res.status(200).json(rows);
+  } catch (error) {
+    console.error("Error fetching conversation messages:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

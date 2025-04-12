@@ -4,6 +4,7 @@ const authenticateUser = require("../middleware/authMiddleware");
 
 module.exports = (io) => {
   const router = express.Router();
+  const notificationRoutes = require("./notifications")(io); // Import notifications routes
 
   /**
    * 🔎 Search Users by Username
@@ -64,6 +65,9 @@ module.exports = (io) => {
         [user_id, friend_id]
       );
 
+      // Notify the recipient about the friend request
+      await notificationRoutes.sendNotification(friend_id, newRequest.rows[0].id, "friend_request", user_id);
+
       return res.status(201).json({ message: "Friend request sent", data: newRequest.rows[0] });
     } catch (error) {
       console.error("Error sending friend request:", error);
@@ -96,6 +100,9 @@ module.exports = (io) => {
          WHERE user_id = $1 AND friend_id = $2`,
         [friendId, user_id]
       );
+
+      // Notify the sender that their friend request was accepted
+      await notificationRoutes.sendNotification(friendId, pendingCheck.rows[0].id, "friend_accepted", user_id);
 
       return res.status(200).json({ message: "Friend request accepted" });
     } catch (error) {
@@ -138,12 +145,12 @@ module.exports = (io) => {
   /**
    * 📃 List All Accepted Friends for the Logged-In User
    * GET /api/friends
-   * Returns accepted friendships as an array of objects with id and name.
+   * Returns accepted friendships as an array of objects with id, name, and profile_picture.
    */
   router.get("/", authenticateUser, async (req, res) => {
     try {
       const user_id = req.user.userId;
-      // This query returns each accepted friend's id and username as "name"
+      // Updated query that returns id, name, and profile_picture for the accepted friend.
       const query = `
         SELECT 
           CASE 
@@ -153,7 +160,11 @@ module.exports = (io) => {
           CASE 
             WHEN f.user_id = $1 THEN u.username
             ELSE u2.username
-          END AS name
+          END AS name,
+          CASE
+            WHEN f.user_id = $1 THEN u.profile_picture
+            ELSE u2.profile_picture
+          END AS profile_picture
         FROM friends f
         LEFT JOIN users u ON f.friend_id = u.id
         LEFT JOIN users u2 ON f.user_id = u2.id

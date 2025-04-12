@@ -12,13 +12,9 @@ const Onboarding3 = () => {
   return (
     <View style={styles.container}>
       <Image source={require("../../assets/onboardingphone3.png")} style={styles.image} />
-<<<<<<< HEAD
       <Text style={styles.text}>
         Look Up More Events or Activities Nearby Using the Map
       </Text>
-=======
-      <Text style={styles.text}>Look Up More Events or Activities Nearby Using the Map</Text>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
         <TouchableOpacity
@@ -52,7 +48,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     textAlign: "center",
     paddingHorizontal: 30,
-<<<<<<< HEAD
     color: "#0A58CA", // Updated primary color
     marginTop: 25,
     fontWeight: "600",
@@ -60,14 +55,6 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: "#0A58CA", // Updated primary color
-=======
-    color: "#4169E1",
-    marginTop: 25,
-    fontWeight: "600",
-  },
-  button: {
-    backgroundColor: "#4169E1",
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     paddingVertical: 12,
     paddingHorizontal: 35,
     borderRadius: 25,
@@ -81,10 +68,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
-<<<<<<< HEAD
     fontFamily: "AirbnbCereal", // Updated to Airbnb font
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   },
 });
 

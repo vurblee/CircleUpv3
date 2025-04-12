@@ -10,25 +10,29 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.777.0",
+    "@aws-sdk/lib-storage": "^3.777.0",
     "@expo/vector-icons": "^14.0.4",
     "@react-native-async-storage/async-storage": "^2.1.2",
+    "@react-native-community/datetimepicker": "^8.3.0",
     "aws-sdk": "^2.1692.0",
     "bcryptjs": "^3.0.2",
     "circleup-backend": "file:",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "expo-file-system": "^18.0.12",
     "expo-image-picker": "~16.0.6",
+    "expo-location": "~18.0.10",
+    "expo-sharing": "^13.0.1",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "jwt-decode": "^2.2.0",
     "morgan": "^1.10.0",
-<<<<<<< HEAD
     "multer": "^1.4.5-lts.2",
     "multer-s3": "^3.0.1",
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     "pg": "^8.13.3",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "uuid": "^11.1.0"
   }
 }

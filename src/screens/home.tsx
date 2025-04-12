@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,23 +14,47 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import axios from "axios";
+import apiClient from "../api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import jwtDecode from "jwt-decode";
 import { formatDateString } from "../utils/dateUtils";
 import { useTheme } from "../../src/providers/ThemeContext";
-<<<<<<< HEAD
 import { LinearGradient } from "expo-linear-gradient";
-import HapticButton from "../components/hapticbutton";  // HapticButton imported
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+import HapticButton from "../components/hapticbutton";
+import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from "expo-image-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Location from "expo-location";
+import MapView, { Marker } from "react-native-maps";
 
 const { width, height: windowHeight } = Dimensions.get("window");
+
+const toggleLike = async (postId, liked, setLiked, setLikeCount) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return;
+
+    if (liked) {
+      await apiClient.delete(`/posts/${postId}/like`);
+      setLiked(false);
+      setLikeCount((prev) => Math.max(prev - 1, 0));
+      // Removed the success alert
+    } else {
+      await apiClient.post(`/posts/${postId}/like`, {});
+      setLiked(true);
+      setLikeCount((prev) => prev + 1);
+      // Removed the success alert
+    }
+  } catch (error) {
+    console.error("Error toggling like:", error.response?.data || error.message);
+    Alert.alert("Error", error.response?.data?.message || "Could not toggle like.");
+  }
+};
 
 const HomePage = () => {
   const navigation = useNavigation();
@@ -45,17 +69,21 @@ const HomePage = () => {
   const borderRadiusAnim = useState(new Animated.Value(0))[0];
 
   const [showPostModal, setShowPostModal] = useState(false);
-  const [postModalAnim] = useState(new Animated.Value(windowHeight));
+  const postModalAnim = useState(new Animated.Value(windowHeight))[0];
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
   const [isEvent, setIsEvent] = useState(false);
   const [eventDate, setEventDate] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
-<<<<<<< HEAD
   const [editingPostId, setEditingPostId] = useState(null);
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+
+  const [eventYear, setEventYear] = useState(new Date().getFullYear().toString());
+  const [eventMonth, setEventMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, "0"));
+  const [eventDay, setEventDay] = useState(new Date().getDate().toString().padStart(2, "0"));
+  const [eventHour, setEventHour] = useState("12");
+  const [eventMinute, setEventMinute] = useState("00");
+  const [eventAmPm, setEventAmPm] = useState("AM");
+  const [bannerPhotoUri, setBannerPhotoUri] = useState(null);
+  const [imageId, setImageId] = useState(null);
 
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [feedPosts, setFeedPosts] = useState([]);
@@ -68,9 +96,11 @@ const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const popupAnim = useRef(new Animated.Value(-300)).current;
 
+  const [currentUserName, setCurrentUserName] = useState("User Name");
   const [currentUserId, setCurrentUserId] = useState(null);
-  const popupAnim = useRef(new Animated.Value(300)).current;
+  const [userProfilePic, setUserProfilePic] = useState("https://via.placeholder.com/70");
 
   const [filterVisible, setFilterVisible] = useState(false);
   const [filterFriendsOnly, setFilterFriendsOnly] = useState(false);
@@ -80,11 +110,20 @@ const HomePage = () => {
   const [filterEndDate, setFilterEndDate] = useState("");
   const [filterPostType, setFilterPostType] = useState("all");
 
-<<<<<<< HEAD
   const [fabScale] = useState(new Animated.Value(1));
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+  const [isEditingEventDetails, setIsEditingEventDetails] = useState(false);
+
+  const [userLocation, setUserLocation] = useState("New York, USA");
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  const [locationInput, setLocationInput] = useState("");
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
+  const [mapVisible, setMapVisible] = useState(false);
+
   const loadCurrentUserId = async () => {
     try {
       const storedUserId = await AsyncStorage.getItem("userId");
@@ -94,16 +133,23 @@ const HomePage = () => {
     }
   };
 
+  const fetchCurrentUserProfile = async () => {
+    try {
+      if (!currentUserId) return;
+      const response = await apiClient.get(`/users/${currentUserId}`);
+      const userData = response.data;
+      setUserProfilePic(userData.profile_picture || "https://via.placeholder.com/70");
+      setCurrentUserName(userData.username || userData.name || "User Name");
+    } catch (error) {
+      console.error("Error fetching user profile:", error.response?.data || error.message);
+      setUserProfilePic("https://via.placeholder.com/70");
+      setCurrentUserName("User Name");
+    }
+  };
+
   const fetchFriendsList = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-      const response = await axios.get("http://192.168.1.231:5000/api/friends", {
-=======
-      const response = await axios.get("http://10.0.2.2:5000/api/friends", {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiClient.get("/friends");
       setFriendsList(response.data);
     } catch (error) {
       console.error("Error fetching friends list:", error);
@@ -111,10 +157,26 @@ const HomePage = () => {
   };
 
   useEffect(() => {
-    if (filterVisible && friendsList.length === 0) {
+    if (filterVisible && filterFriendsOnly && friendsList.length === 0) {
       fetchFriendsList();
     }
-  }, [filterVisible]);
+  }, [filterVisible, filterFriendsOnly]);
+
+  useEffect(() => {
+    const initialize = async () => {
+      await loadCurrentUserId();
+    };
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchCurrentUserProfile();
+      fetchUpcomingEvents();
+      fetchFeedPosts();
+      fetchConversations();
+    }
+  }, [currentUserId]);
 
   const toggleFriendSelection = (friendId) => {
     setSelectedFriendIds((prev) =>
@@ -132,27 +194,12 @@ const HomePage = () => {
     animatePopupUp();
     try {
       setSearchLoading(true);
-      const token = await AsyncStorage.getItem("userToken");
       const [usersRes, postsRes] = await Promise.all([
-<<<<<<< HEAD
-        axios.get("http://192.168.1.231:5000/api/users/search", {
-          params: { query },
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get("http://192.168.1.231:5000/api/posts/search", {
-=======
-        axios.get("http://10.0.2.2:5000/api/users/search", {
-          params: { query },
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get("http://10.0.2.2:5000/api/posts/search", {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          params: { query },
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        apiClient.get("/users/search", { params: { query } }),
+        apiClient.get("/posts/search", { params: { query } }),
       ]);
       const userResults = usersRes.data.map((u) => ({ ...u, type: "user" }));
-      const postResults = postsRes.data.map((p) => ({ ...p, type: "post" }));
+      const postResults = postsRes.data.map((p) => ({ ...p, type: p.is_event ? "event" : "post" }));
       setSearchResults([...userResults, ...postResults]);
     } catch (error) {
       console.error("Error searching:", error);
@@ -163,25 +210,21 @@ const HomePage = () => {
 
   const fetchUpcomingEvents = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
-      let userId = await AsyncStorage.getItem("userId");
-      if (!token) {
-        navigation.navigate("SignIn");
-        return;
-      }
-      if (!userId) {
-        const decoded = jwtDecode(token);
-        userId = decoded.userId;
-        await AsyncStorage.setItem("userId", userId);
-      }
-<<<<<<< HEAD
-      const response = await axios.get("http://192.168.1.231:5000/api/posts/upcoming-events", {
-=======
-      const response = await axios.get("http://10.0.2.2:5000/api/posts/upcoming-events", {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUpcomingEvents(response.data);
+      setLoadingEvents(true);
+      const response = await apiClient.get("/posts/upcoming-events");
+      const eventsWithDetails = await Promise.all(
+        response.data.map(async (event) => {
+          const eventDetails = await apiClient.get(`/posts/${event.id}`);
+          return {
+            ...event,
+            banner_photo: eventDetails.data.banner_photo,
+            total_likes: parseInt(eventDetails.data.total_likes) || 0,
+            user_liked: eventDetails.data.user_liked || false,
+            location: eventDetails.data.location || "No location provided",
+          };
+        })
+      );
+      setUpcomingEvents(eventsWithDetails);
     } catch (error) {
       console.error("Error fetching upcoming events:", error);
     } finally {
@@ -191,40 +234,59 @@ const HomePage = () => {
 
   const fetchFeedPosts = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-      const response = await axios.get("http://192.168.1.231:5000/api/posts", {
-=======
-      const response = await axios.get("http://10.0.2.2:5000/api/posts", {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setFeedPosts(response.data);
+      setLoadingFeed(true);
+      const response = await apiClient.get("/posts");
+      const postsWithDetails = await Promise.all(
+        response.data.map(async (post) => {
+          const postDetails = await apiClient.get(`/posts/${post.id}`);
+          return {
+            ...post,
+            banner_photo: postDetails.data.banner_photo,
+            total_likes: parseInt(postDetails.data.total_likes) || 0,
+            user_liked: postDetails.data.user_liked || false,
+            location: postDetails.data.location || "No location provided",
+          };
+        })
+      );
+      setFeedPosts(postsWithDetails);
     } catch (error) {
-      console.error("Error fetching feed posts:", error);
+      console.error("Error fetching feed posts:", error.response?.data || error.message);
     } finally {
       setLoadingFeed(false);
     }
   };
 
+  const handleRefresh = () => {
+    setLoadingEvents(true);
+    setLoadingFeed(true);
+    fetchUpcomingEvents();
+    fetchFeedPosts();
+  };
+
   const applyFeedFilters = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
       const queryParams = new URLSearchParams();
       if (filterFriendsOnly) queryParams.append("friendsOnly", "true");
       if (selectedFriendIds.length > 0) queryParams.append("friendIds", selectedFriendIds.join(","));
       if (filterStartDate) queryParams.append("startDate", filterStartDate);
       if (filterEndDate) queryParams.append("endDate", filterEndDate);
       if (filterPostType !== "all") queryParams.append("eventType", filterPostType);
-<<<<<<< HEAD
-      const url = `http://192.168.1.231:5000/api/posts/filter?${queryParams.toString()}`;
-=======
-      const url = `http://10.0.2.2:5000/api/posts/filter?${queryParams.toString()}`;
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-      const response = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setFeedPosts(response.data);
+
+      const response = await apiClient.get(`/posts/filter?${queryParams.toString()}`);
+      const postsWithDetails = await Promise.all(
+        response.data.map(async (post) => {
+          const postDetails = await apiClient.get(`/posts/${post.id}`);
+          return {
+            ...post,
+            banner_photo: postDetails.data.banner_photo,
+            total_likes: parseInt(postDetails.data.total_likes) || 0,
+            user_liked: postDetails.data.user_liked || false,
+            city_name: postDetails.data.city_name,
+            state_name: postDetails.data.state_name,
+          };
+        })
+      );
+      setFeedPosts(postsWithDetails);
       setFilterVisible(false);
     } catch (error) {
       console.error("Error applying feed filters:", error);
@@ -232,16 +294,17 @@ const HomePage = () => {
     }
   };
 
+  const clearFilters = () => {
+    setFilterFriendsOnly(false);
+    setSelectedFriendIds([]);
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setFilterPostType("all");
+  };
+
   const fetchConversations = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-      const response = await axios.get("http://192.168.1.231:5000/api/conversations", {
-=======
-      const response = await axios.get("http://10.0.2.2:5000/api/conversations", {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiClient.get("/conversations");
       setConversations(response.data);
       setDeletedConversations([]);
     } catch (error) {
@@ -251,11 +314,12 @@ const HomePage = () => {
   };
 
   useEffect(() => {
-    loadCurrentUserId();
-    fetchUpcomingEvents();
-    fetchFeedPosts();
-    fetchConversations();
-  }, []);
+    if (eventYear && eventMonth && eventDay && eventHour && eventMinute && eventAmPm) {
+      const hour24 = eventAmPm === "PM" && eventHour !== "12" ? parseInt(eventHour) + 12 :
+        eventAmPm === "AM" && eventHour === "12" ? "00" : eventHour;
+      setEventDate(`${eventYear}-${eventMonth}-${eventDay} ${hour24}:${eventMinute}:00`);
+    }
+  }, [eventYear, eventMonth, eventDay, eventHour, eventMinute, eventAmPm]);
 
   const toggleMenu = () => {
     if (!menuVisible) {
@@ -276,7 +340,7 @@ const HomePage = () => {
 
   const openPostModal = () => {
     setShowPostModal(true);
-    Animated.timing(postModalAnim, { toValue: windowHeight * 0.2, duration: 300, useNativeDriver: false }).start();
+    Animated.timing(postModalAnim, { toValue: windowHeight * 0.1, duration: 300, useNativeDriver: false }).start();
   };
 
   const closePostModal = () => {
@@ -286,12 +350,15 @@ const HomePage = () => {
       setPostContent("");
       setIsEvent(false);
       setEventDate("");
-      setLatitude("");
-      setLongitude("");
-<<<<<<< HEAD
-      setEditingPostId(null); // new
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+      setEventYear(new Date().getFullYear().toString());
+      setEventMonth((new Date().getMonth() + 1).toString().padStart(2, "0"));
+      setEventDay(new Date().getDate().toString().padStart(2, "0"));
+      setEventHour("12");
+      setEventMinute("00");
+      setEventAmPm("AM");
+      setBannerPhotoUri(null);
+      setImageId(null);
+      setEditingPostId(null);
     });
   };
 
@@ -300,35 +367,51 @@ const HomePage = () => {
       Alert.alert("Error", "Title and content are required.");
       return;
     }
-    if (isEvent && (!eventDate || !latitude || !longitude)) {
-      Alert.alert("Error", "Event date and location (latitude, longitude) are required for events.");
+    if (isEvent && (!latitude || !longitude)) {
+      Alert.alert("Error", "Please set a valid location for the event.");
       return;
     }
+
     try {
-      const token = await AsyncStorage.getItem("userToken");
-      const payload = {
-        title: postTitle,
-        content: postContent,
-        is_event: isEvent,
-        event_date: isEvent ? eventDate : null,
-        latitude: isEvent ? parseFloat(latitude) : null,
-        longitude: isEvent ? parseFloat(longitude) : null,
-        image: null,
-      };
-<<<<<<< HEAD
-      await axios.post("http://192.168.1.231:5000/api/posts", payload, {
-=======
-      await axios.post("http://10.0.2.2:5000/api/posts", payload, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      fetchFeedPosts();
-      fetchUpcomingEvents();
+      const formData = new FormData();
+      formData.append("title", postTitle);
+      formData.append("content", postContent);
+      formData.append("is_event", isEvent.toString());
+      if (isEvent) {
+        formData.append("event_date", eventDate);
+        formData.append("location", locationInput);
+        formData.append("latitude", latitude);
+        formData.append("longitude", longitude);
+      }
+
+      if (isEvent && bannerPhotoUri) {
+        const uriParts = bannerPhotoUri.split(".");
+        const fileType = uriParts[uriParts.length - 1];
+        formData.append("banner_photo", {
+          uri: bannerPhotoUri,
+          name: `banner-${Date.now()}.${fileType}`,
+          type: `image/${fileType}`,
+        });
+      }
+
+      let response;
+      if (editingPostId) {
+        response = await apiClient.put(`/posts/${editingPostId}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        response = await apiClient.post("/posts", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+
+      await fetchFeedPosts();
+      await fetchUpcomingEvents();
       closePostModal();
-      Alert.alert("Success", "Post created successfully!");
+      Alert.alert("Success", editingPostId ? "Post updated successfully!" : "Post created successfully!");
     } catch (error) {
-      console.error("Error creating post:", error.response?.data || error.message);
-      Alert.alert("Error", error.response?.data?.error || "Could not create post.");
+      console.error("Error submitting post:", error.response?.data || error.message);
+      Alert.alert("Error", error.response?.data?.error || "Could not submit post.");
     }
   };
 
@@ -340,14 +423,7 @@ const HomePage = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-            await axios.delete(`http://192.168.1.231:5000/api/posts/${postId}`, {
-=======
-            await axios.delete(`http://10.0.2.2:5000/api/posts/${postId}`, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-              headers: { Authorization: `Bearer ${token}` },
-            });
+            await apiClient.delete(`/posts/${postId}`);
             fetchFeedPosts();
             fetchUpcomingEvents();
             Alert.alert("Success", "Post/Event deleted successfully!");
@@ -361,21 +437,27 @@ const HomePage = () => {
   };
 
   const handleEditPost = (item) => {
-<<<<<<< HEAD
-    setEditingPostId(item.id); // new
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+    setEditingPostId(item.id);
     setPostTitle(item.title);
     setPostContent(item.content);
     setIsEvent(item.is_event);
-    setEventDate(item.event_date || "");
-<<<<<<< HEAD
-=======
-    setLatitude(item.latitude ? item.latitude.toString() : "");
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-    setLongitude(item.longitude ? item.longitude.toString() : "");
+    setBannerPhotoUri(item.banner_photo || null);
+    setImageId(item.image_id || null);
+    if (item.event_date) {
+      const date = new Date(item.event_date);
+      setEventYear(date.getFullYear().toString());
+      setEventMonth((date.getMonth() + 1).toString().padStart(2, "0"));
+      setEventDay(date.getDate().toString().padStart(2, "0"));
+      let hours = date.getHours();
+      const minutes = date.getMinutes().toString().padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12;
+      setEventHour(hours.toString().padStart(2, "0"));
+      setEventMinute(minutes);
+      setEventAmPm(ampm);
+    }
     setShowPostModal(true);
-    Animated.timing(postModalAnim, { toValue: windowHeight * 0.2, duration: 300, useNativeDriver: false }).start();
+    Animated.timing(postModalAnim, { toValue: windowHeight * 0.1, duration: 300, useNativeDriver: false }).start();
   };
 
   const animatePopupUp = () => {
@@ -383,12 +465,94 @@ const HomePage = () => {
   };
 
   const animatePopupDown = () => {
-<<<<<<< HEAD
     Animated.timing(popupAnim, { toValue: -300, duration: 300, useNativeDriver: true }).start();
-=======
-    Animated.timing(popupAnim, { toValue: 300, duration: 300, useNativeDriver: true }).start();
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   };
+
+  const uploadBannerPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "Please allow access to your media library.");
+        return null;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets) {
+        const localUri = result.assets[0].uri;
+        Alert.alert("Success", "Banner photo selected successfully!");
+        return localUri;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error selecting banner photo:", error.message);
+      Alert.alert("Error", "Failed to select banner photo.");
+      return null;
+    }
+  };
+
+  const fetchUserLocation = async () => {
+    setLocationLoading(true);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "Please allow location access to fetch your current location.");
+        setUserLocation("Location unavailable");
+        setLocationLoading(false);
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const { latitude, longitude } = location.coords;
+
+      let address = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (address.length > 0) {
+        const { city, country } = address[0];
+        setUserLocation(`${city || "Unknown City"}, ${country || "Unknown Country"}`);
+      } else {
+        setUserLocation("Location not found");
+      }
+    } catch (error) {
+      console.error("Error fetching location:", error);
+      Alert.alert("Error", "Could not fetch location.");
+      setUserLocation("Location unavailable");
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const handleSetLocation = async () => {
+    if (!locationInput.trim()) {
+      Alert.alert("Error", "Please enter a location.");
+      return;
+    }
+
+    try {
+      const geocodedLocation = await Location.geocodeAsync(locationInput);
+      if (geocodedLocation.length > 0) {
+        const { latitude, longitude } = geocodedLocation[0];
+        setLatitude(latitude);
+        setLongitude(longitude);
+        setMapVisible(true);
+      } else {
+        Alert.alert("Error", "Could not find the location. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error geocoding location:", error);
+      Alert.alert("Error", "Could not process the location. Please try again.");
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchFeedPosts();
+      fetchUpcomingEvents();
+    }, [])
+  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -400,14 +564,16 @@ const HomePage = () => {
         <View style={styles.container}>
           <Animated.View style={[styles.menuContainer, { transform: [{ translateX: slideAnim }] }]}>
             <View style={styles.profileHeader}>
-              <View style={styles.profilePicContainer}>
-                <Image source={{ uri: "https://via.placeholder.com/70" }} style={styles.profilePic} />
-                <View style={styles.onlineIndicator} />
+              <Image source={{ uri: userProfilePic }} style={styles.profilePic} />
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{currentUserName || "User Name"}</Text>
+                <View style={styles.onlineStatusContainer}>
+                  <View style={styles.onlineIndicator} />
+                  <HapticButton style={styles.onlineToggleButton} onPress={() => { }}>
+                    <Text style={styles.onlineToggleText}>Online</Text>
+                  </HapticButton>
+                </View>
               </View>
-<<<<<<< HEAD
-              <HapticButton style={styles.onlineToggleButton} onPress={() => { /* add your online toggle logic */ }}>
-                <Text style={styles.onlineToggleText}>Online</Text>
-              </HapticButton>
             </View>
             <HapticButton style={styles.menuItem} onPress={() => navigation.navigate("Profile")}>
               <Ionicons name="person-outline" size={22} color="#000" />
@@ -429,6 +595,16 @@ const HomePage = () => {
               <Ionicons name="calendar-outline" size={22} color="#000" />
               <Text style={styles.menuText}>Events</Text>
             </HapticButton>
+            {/* New Buttons */}
+            <HapticButton style={styles.menuItem} onPress={() => navigation.navigate("DailyInspirationScreen")}>
+              <Ionicons name="bulb-outline" size={22} color="#000" />
+              <Text style={styles.menuText}>Daily Inspiration</Text>
+            </HapticButton>
+            <HapticButton style={styles.menuItem} onPress={() => navigation.navigate("CommunitiesScreen")}>
+              <Ionicons name="people-circle-outline" size={22} color="#000" />
+              <Text style={styles.menuText}>Communities</Text>
+            </HapticButton>
+            {/* End of New Buttons */}
             <HapticButton style={styles.menuItem} onPress={() => navigation.navigate("SupportFAQ")}>
               <Ionicons name="help-circle-outline" size={22} color="#000" />
               <Text style={styles.menuText}>Support & FAQ</Text>
@@ -441,93 +617,51 @@ const HomePage = () => {
               <Ionicons name="log-out-outline" size={22} color="#000" />
               <Text style={styles.menuText}>Sign Out</Text>
             </HapticButton>
-=======
-              <TouchableOpacity style={styles.onlineToggleButton}>
-                <Text style={styles.onlineToggleText}>Online</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Profile")}>
-              <Ionicons name="person-outline" size={22} color="#000" />
-              <Text style={styles.menuText}>My Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Map")}>
-              <Ionicons name="map-outline" size={22} color="#000" />
-              <Text style={styles.menuText}>Map</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("FriendsScreen")}>
-              <Ionicons name="people-outline" size={22} color="#000" />
-              <Text style={styles.menuText}>Friends</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Messages")}>
-              <Ionicons name="chatbubble-outline" size={22} color="#000" />
-              <Text style={styles.menuText}>Messages</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Events")}>
-              <Ionicons name="calendar-outline" size={22} color="#000" />
-              <Text style={styles.menuText}>Events</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("SupportFAQ")}>
-              <Ionicons name="help-circle-outline" size={22} color="#000" />
-              <Text style={styles.menuText}>Support & FAQ</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Settings")}>
-              <Ionicons name="settings-outline" size={22} color="#000" />
-              <Text style={styles.menuText}>Settings</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("SignIn")}>
-              <Ionicons name="log-out-outline" size={22} color="#000" />
-              <Text style={styles.menuText}>Sign Out</Text>
-            </TouchableOpacity>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
           </Animated.View>
 
           <Pressable style={styles.overlay} onPress={menuVisible ? toggleMenu : undefined}>
             <Animated.View style={[styles.homeScreen, { transform: [{ scale: scaleAnim }], borderRadius: borderRadiusAnim }]}>
-<<<<<<< HEAD
               <LinearGradient
-                colors={["#007AFF", "#005BB5"]} // Fade from blue to a darker blue
+                colors={
+                  theme.mode === "blackAndWhite"
+                    ? ["#000000", "#ffffff"]
+                    : [theme.primary, `${theme.primary}CC`]
+                }
+                locations={theme.mode === "blackAndWhite" ? [0, 0.95] : undefined}
+                style={styles.headerGradient}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={styles.headerGradient} // Use the new gradient style
+                end={{ x: 0, y: 2 }}
               >
-                {/* header content goes here */}
                 <HapticButton style={styles.menuButton} onPress={toggleMenu}>
                   <Ionicons name="menu" size={28} color="#fff" />
                 </HapticButton>
                 <HapticButton
-=======
-              <View style={[styles.header, { backgroundColor: theme.primary }]}>
-                <TouchableOpacity style={styles.menuButton} onPress={toggleMenu}>
-                  <Ionicons name="menu" size={28} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
                   style={styles.notificationIcon}
                   onPress={() => navigation.navigate("NotificationsScreen")}
                 >
                   <Ionicons name="notifications-outline" size={24} color="#fff" />
-<<<<<<< HEAD
                 </HapticButton>
-                <HapticButton onPress={() => console.log("Location clicked!")}>
-                  <Text style={styles.locationTitle}>Current Location</Text>
-                  <Text style={styles.locationText}>New York, USA</Text>
-                </HapticButton>
+                <View style={styles.locationContainer}>
+                  <HapticButton onPress={fetchUserLocation}>
+                    <Text style={styles.locationTitle}>Current Location</Text>
+                    {locationLoading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.locationText}>{userLocation}</Text>
+                    )}
+                  </HapticButton>
+                </View>
                 <View style={{ flexDirection: "row", alignItems: "center", marginTop: 20 }}>
-                  <View
-                    style={[
-                      styles.searchContainer,
-                      { flex: 1, backgroundColor: "transparent" } // override any blue background
-                    ]}
-                  >
+                  <View style={[styles.searchContainer, { flex: 1, backgroundColor: "transparent" }]}>
                     <Ionicons
                       name="search-outline"
                       size={18}
-                      color="#aaa"
+                      color="#fff"  // force white color
                       style={{ marginLeft: 10 }}
                     />
                     <Text
                       style={{
-                        color: "#aaa",
+                        color: "#fff",
                         marginHorizontal: 5,
                         fontSize: 20
                       }}
@@ -535,12 +669,9 @@ const HomePage = () => {
                       |
                     </Text>
                     <TextInput
-                      style={[
-                        styles.searchInput,
-                        { fontSize: 20 }
-                      ]}
+                      style={[styles.searchInput, { fontSize: 20, color: "#fff" }]}
                       placeholder="Search..."
-                      placeholderTextColor="#aaa"
+                      placeholderTextColor="#fff" // set a lighter gray for placeholder
                       value={searchQuery}
                       onChangeText={handleSearch}
                       onBlur={() => {
@@ -555,19 +686,34 @@ const HomePage = () => {
                   <HapticButton
                     style={[
                       styles.filterButton,
-                      { borderColor: "#ADD8E6", marginLeft: 10, transform: [{ translateY: -15 }] }  // raises the button further
+                      {
+                        backgroundColor: "rgba(255, 255, 255, 0.2)", // Match transparency
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.8, // Match shadow opacity
+                        shadowRadius: 2,
+                        elevation: 5,
+                      },
                     ]}
                     onPress={() => setFilterVisible(true)}
                   >
                     <Text style={styles.filterText}>Filters</Text>
-                    <Ionicons name="options-outline" size={16} color="#fff" style={{ marginLeft: 4 }} />
+                    <Ionicons
+                      name="options-outline"
+                      size={16}
+                      color="#fff" // Keep the icon color consistent
+                      style={{ marginLeft: 4 }}
+                    />
                   </HapticButton>
                 </View>
-                {/* Glossy overlay */}
                 <LinearGradient
-                  colors={["transparent", "rgba(255, 255, 255, 0.37)"]}
+                  colors={["transparent", "rgba(255, 255, 255, 0.05)"]}
                   style={styles.headerGloss}
                   pointerEvents="none"
+                />
+                <LinearGradient
+                  colors={["transparent", "rgba(0, 0, 0, 0.1)"]} // Adjust colors for the 3D effect
+                  style={styles.header3DEffect}
                 />
               </LinearGradient>
 
@@ -575,35 +721,10 @@ const HomePage = () => {
                 <View style={styles.filterOverlay}>
                   <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill}>
                     <LinearGradient
-                      colors={["rgba(0,122,255,0.3)", "rgba(0,85,181,0.3)"]} // semi-transparent blue gradient
+                      colors={["rgba(0,122,255,0.3)", "rgba(0,85,181,0.3)"]}
                       style={StyleSheet.absoluteFill}
                     />
                   </BlurView>
-=======
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => console.log("Location clicked!")}>
-                  <Text style={styles.locationTitle}>Current Location</Text>
-                  <Text style={styles.locationText}>New York, USA</Text>
-                </TouchableOpacity>
-                <View style={styles.searchContainer}>
-                  <Ionicons name="search-outline" size={18} color="#aaa" style={{ marginLeft: 10 }} />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search..."
-                    placeholderTextColor="#aaa"
-                    value={searchQuery}
-                    onChangeText={handleSearch}
-                  />
-                </View>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: theme.primary }]} onPress={() => setFilterVisible(true)}>
-                  <Text style={styles.filterText}>Filters</Text>
-                  <Ionicons name="options-outline" size={16} color="#fff" style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-              </View>
-
-              <Modal transparent visible={filterVisible} animationType="slide">
-                <View style={styles.filterOverlay}>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
                   <View style={styles.filterContainer}>
                     <ScrollView>
                       <Text style={styles.filterTitle}>Filter Feed</Text>
@@ -613,47 +734,81 @@ const HomePage = () => {
                           <Ionicons
                             name={filterFriendsOnly ? "checkbox" : "square-outline"}
                             size={24}
-                            color={theme.primary}
+                            color={theme.mode === "blackAndWhite" ? "#000" : theme.primary}
                           />
                         </TouchableOpacity>
                       </View>
-                      <Text style={[styles.filterLabel, { marginTop: 10 }]}>Select Friends</Text>
-                      {friendsList.length === 0 ? (
-                        <Text style={{ fontSize: 14, color: "#999", marginVertical: 5 }}>No friends found.</Text>
-                      ) : (
-                        <View style={{ maxHeight: 100, marginVertical: 5 }}>
-                          {friendsList.map((friend) => (
-                            <View key={friend.id} style={styles.filterRow}>
-                              <Text style={styles.filterLabel}>{friend.name || friend.friend_username || "Unknown"}</Text>
-                              <TouchableOpacity onPress={() => toggleFriendSelection(friend.id)}>
-                                <Ionicons
-                                  name={selectedFriendIds.includes(friend.id) ? "checkbox" : "square-outline"}
-                                  size={24}
-                                  color={theme.primary}
-                                />
-                              </TouchableOpacity>
+                      {filterFriendsOnly && (
+                        <>
+                          <Text style={[styles.filterLabel, { marginTop: 10 }]}>Select Friends</Text>
+                          {friendsList.length === 0 ? (
+                            <Text style={{ fontSize: 14, color: "#999", marginVertical: 5 }}>No friends found.</Text>
+                          ) : (
+                            <View style={{ maxHeight: 100, marginVertical: 5 }}>
+                              {friendsList.map((friend) => (
+                                <View key={friend.id} style={styles.filterRow}>
+                                  <Text style={styles.filterLabel}>{friend.name || friend.friend_username || "Unknown"}</Text>
+                                  <TouchableOpacity onPress={() => toggleFriendSelection(friend.id)}>
+                                    <Ionicons
+                                      name={selectedFriendIds.includes(friend.id) ? "checkbox" : "square-outline"}
+                                      size={24}
+                                      color={theme.mode === "blackAndWhite" ? "#000" : theme.primary} // Black in black-and-white mode
+                                    />
+                                  </TouchableOpacity>
+                                </View>
+                              ))}
                             </View>
-                          ))}
-                        </View>
+                          )}
+                        </>
                       )}
                       <View style={styles.filterRow}>
                         <Text style={styles.filterLabel}>Start Date</Text>
-                        <TextInput
-                          style={styles.filterInput}
-                          placeholder="YYYY-MM-DD"
-                          value={filterStartDate}
-                          onChangeText={setFilterStartDate}
-                        />
+                        <TouchableOpacity
+                          style={styles.datePickerButton}
+                          onPress={() => setShowStartDatePicker(true)}
+                        >
+                          <Text style={styles.datePickerText}>
+                            {filterStartDate ? new Date(filterStartDate).toLocaleDateString() : "Select Date"}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
+                      {showStartDatePicker && (
+                        <DateTimePicker
+                          value={filterStartDate ? new Date(filterStartDate) : new Date()}
+                          mode="date"
+                          display="default"
+                          onChange={(event, selectedDate) => {
+                            setShowStartDatePicker(false);
+                            if (selectedDate) {
+                              setFilterStartDate(selectedDate.toISOString().split("T")[0]);
+                            }
+                          }}
+                        />
+                      )}
                       <View style={styles.filterRow}>
                         <Text style={styles.filterLabel}>End Date</Text>
-                        <TextInput
-                          style={styles.filterInput}
-                          placeholder="YYYY-MM-DD"
-                          value={filterEndDate}
-                          onChangeText={setFilterEndDate}
-                        />
+                        <TouchableOpacity
+                          style={styles.datePickerButton}
+                          onPress={() => setShowEndDatePicker(true)}
+                        >
+                          <Text style={styles.datePickerText}>
+                            {filterEndDate ? new Date(filterEndDate).toLocaleDateString() : "Select Date"}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
+                      {showEndDatePicker && (
+                        <DateTimePicker
+                          value={filterEndDate ? new Date(filterEndDate) : new Date()}
+                          mode="date"
+                          display="default"
+                          onChange={(event, selectedDate) => {
+                            setShowEndDatePicker(false);
+                            if (selectedDate) {
+                              setFilterEndDate(selectedDate.toISOString().split("T")[0]);
+                            }
+                          }}
+                        />
+                      )}
                       <View style={styles.filterRow}>
                         <Text style={styles.filterLabel}>Post Type</Text>
                         <View style={styles.filterOptions}>
@@ -676,21 +831,30 @@ const HomePage = () => {
                       </View>
                     </ScrollView>
                     <View style={styles.filterButtonsRow}>
-<<<<<<< HEAD
-                      <HapticButton style={[styles.filterApplyButton, { backgroundColor: theme.primary }]} onPress={applyFeedFilters}>
-                        <Text style={styles.filterButtonText}>Apply Filters</Text>
-                      </HapticButton>
                       <HapticButton style={styles.filterCancelButton} onPress={() => setFilterVisible(false)}>
                         <Text style={styles.filterButtonText}>Cancel</Text>
                       </HapticButton>
-=======
-                      <TouchableOpacity style={[styles.filterApplyButton, { backgroundColor: theme.primary }]} onPress={applyFeedFilters}>
-                        <Text style={styles.filterButtonText}>Apply Filters</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.filterCancelButton} onPress={() => setFilterVisible(false)}>
-                        <Text style={styles.filterButtonText}>Cancel</Text>
-                      </TouchableOpacity>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+                      <HapticButton style={[styles.filterApplyButton, { backgroundColor: "#FFA500" }]} onPress={clearFilters}>
+                        <Text style={styles.filterButtonText}>Clear</Text>
+                      </HapticButton>
+                      <HapticButton
+                        style={[
+                          styles.filterApplyButton,
+                          {
+                            backgroundColor: theme.mode === "blackAndWhite" ? "#000" : theme.primary, // Black in black-and-white mode
+                          },
+                        ]}
+                        onPress={applyFeedFilters}
+                      >
+                        <Text
+                          style={[
+                            styles.filterButtonText,
+                            { color: theme.mode === "blackAndWhite" ? "#fff" : "#fff" }, // White text in black-and-white mode
+                          ]}
+                        >
+                          Apply Filters
+                        </Text>
+                      </HapticButton>
                     </View>
                   </View>
                 </View>
@@ -703,27 +867,23 @@ const HomePage = () => {
                   horizontal
                   nestedScrollEnabled={true}
                   showsHorizontalScrollIndicator={false}
-                  keyExtractor={(item) => item.id.toString()}
+                  keyExtractor={(item, index) => `event-${item.id}-${index}`}
                   renderItem={({ item }) => (
                     <EventItem
                       item={item}
-                      currentUserId={currentUserId}
-                      onDelete={handleDeletePost}
-                      onEdit={handleEditPost}
                       navigation={navigation}
                       theme={theme}
                     />
                   )}
                   style={{ marginVertical: 10 }}
-<<<<<<< HEAD
-                  contentContainerStyle={{ paddingHorizontal: 12 }}  // aligns the first event with feed posts
+                  contentContainerStyle={{ paddingHorizontal: 12 }}
                 />
                 <View style={styles.feedWrapper}>
                   <Text style={styles.feedSectionTitle}>Feed</Text>
                   <FlatList
                     data={feedPosts}
                     nestedScrollEnabled={true}
-                    keyExtractor={(item) => item.id.toString()}
+                    keyExtractor={(item, index) => `feed-${item.id}-${index}`}
                     renderItem={({ item }) => (
                       <FeedItem
                         item={item}
@@ -735,23 +895,22 @@ const HomePage = () => {
                       />
                     )}
                     scrollEnabled={false}
-                    contentContainerStyle={{ paddingTop: 10 }} // Changed from 40 to 10 to match Upcoming Events gap
+                    contentContainerStyle={{ paddingTop: 10 }}
                   />
                 </View>
               </ScrollView>
 
-              {/* Insert the blue circle view below the menu and before the FAB */}
               <View style={styles.fabBlueBackground}>
                 <LinearGradient
-                  colors={["transparent", "rgba(255,255,255,1)"]} // Use full white for testing
+                  colors={["transparent", "rgba(255,255,255,1)"]}
                   style={{
                     position: "absolute",
                     bottom: 0,
                     width: 56,
-                    height: 40, // Increase height for visibility
+                    height: 40,
                     borderBottomLeftRadius: 28,
                     borderBottomRightRadius: 28,
-                    zIndex: 99, // Ensure it overlays the blue container
+                    zIndex: 99,
                   }}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 0, y: 1 }}
@@ -760,15 +919,19 @@ const HomePage = () => {
 
               <Animated.View style={[styles.fab, { transform: [{ scale: fabScale }] }]}>
                 <LinearGradient
-                  colors={["#0A58CA", "#4A90E2"]}
+                  colors={
+                    theme.mode === "blackAndWhite"
+                      ? ["#000000", "#888888"]  // blend from black to dark gray
+                      : ["#0A58CA", "#4A90E2"]
+                  }
                   start={{ x: 0.5, y: 0 }}
                   end={{ x: 0.5, y: 1 }}
-                  style={{ 
+                  style={{
                     position: "absolute",
                     width: 60,
                     height: 60,
                     borderRadius: 30,
-                    elevation: 10, // Android shadow
+                    elevation: 10,
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: 6 },
                     shadowOpacity: 0.4,
@@ -780,7 +943,7 @@ const HomePage = () => {
                   activeOpacity={0.9}
                   style={[
                     styles.fabContent,
-                    { 
+                    {
                       shadowColor: "#000",
                       shadowOffset: { width: 0, height: 2 },
                       shadowOpacity: 0.5,
@@ -795,69 +958,49 @@ const HomePage = () => {
 
               <View style={styles.navBar}>
                 <HapticButton style={styles.navItem} onPress={() => navigation.navigate("Explore")}>
-                  <Ionicons name="compass-outline" size={24} color={theme.primary} />
-                  <Text style={[styles.navText, { color: theme.primary }]}>Explore</Text>
+                  <Ionicons
+                    name="compass-outline"
+                    size={24}
+                    color={theme.mode === "blackAndWhite" ? "#000000" : theme.primary}
+                  />
+                  <Text style={[styles.navText, { color: theme.mode === "blackAndWhite" ? "#000000" : theme.primary }]}>
+                    Explore
+                  </Text>
                 </HapticButton>
                 <HapticButton style={styles.navItem} onPress={() => navigation.navigate("Events")}>
-                  <Ionicons name="calendar" size={24} color={theme.primary} />
-                  <Text style={[styles.navText, { color: theme.primary }]}>Events</Text>
+                  <Ionicons
+                    name="calendar"
+                    size={24}
+                    color={theme.mode === "blackAndWhite" ? "#000000" : theme.primary}
+                  />
+                  <Text style={[styles.navText, { color: theme.mode === "blackAndWhite" ? "#000000" : theme.primary }]}>
+                    Events
+                  </Text>
                 </HapticButton>
                 <HapticButton style={styles.navItem} onPress={() => navigation.navigate("Messages")}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={24} color={theme.primary} />
-                  <Text style={[styles.navText, { color: theme.primary }]}>Messages</Text>
+                  <Ionicons
+                    name="chatbubble-ellipses-outline"
+                    size={24}
+                    color={theme.mode === "blackAndWhite" ? "#000000" : theme.primary}
+                  />
+                  <Text style={[styles.navText, { color: theme.mode === "blackAndWhite" ? "#000000" : theme.primary }]}>
+                    Messages
+                  </Text>
                 </HapticButton>
                 <HapticButton style={styles.navItem} onPress={() => navigation.navigate("Profile")}>
-                  <Ionicons name="person-circle-outline" size={24} color={theme.primary} />
-                  <Text style={[styles.navText, { color: theme.primary }]}>Profile</Text>
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={24}
+                    color={theme.mode === "blackAndWhite" ? "#000000" : theme.primary}
+                  />
+                  <Text style={[styles.navText, { color: theme.mode === "blackAndWhite" ? "#000000" : theme.primary }]}>
+                    Profile
+                  </Text>
                 </HapticButton>
-=======
-                />
-                <Text style={styles.sectionTitle}>Feed</Text>
-                <FlatList
-                  data={feedPosts}
-                  nestedScrollEnabled={true}
-                  keyExtractor={(item) => item.id.toString()}
-                  renderItem={({ item }) => (
-                    <FeedItem
-                      item={item}
-                      currentUserId={currentUserId}
-                      onDelete={handleDeletePost}
-                      onEdit={handleEditPost}
-                      navigation={navigation}
-                      theme={theme}
-                    />
-                  )}
-                  scrollEnabled={false}
-                />
-              </ScrollView>
-
-              <TouchableOpacity style={[styles.fab, { backgroundColor: theme.primary }]} onPress={openPostModal}>
-                <Ionicons name="add" size={28} color="#fff" />
-              </TouchableOpacity>
-
-              <View style={styles.navBar}>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate("Explore")}>
-                  <Ionicons name="search-outline" size={24} color={theme.primary} />
-                  <Text style={[styles.navText, { color: theme.primary }]}>Explore</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate("Events")}>
-                  <Ionicons name="calendar-outline" size={24} color={theme.primary} />
-                  <Text style={[styles.navText, { color: theme.primary }]}>Events</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate("Messages")}>
-                  <Ionicons name="chatbubble-outline" size={24} color={theme.primary} />
-                  <Text style={[styles.navText, { color: theme.primary }]}>Messages</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate("Profile")}>
-                  <Ionicons name="person-outline" size={24} color={theme.primary} />
-                  <Text style={[styles.navText, { color: theme.primary }]}>Profile</Text>
-                </TouchableOpacity>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
               </View>
             </Animated.View>
           </Pressable>
 
-<<<<<<< HEAD
           {searchQuery.trim().length > 0 && (
             <Animated.View style={[styles.searchPopup, { transform: [{ translateY: popupAnim }] }]}>
               <View style={styles.searchPopupHeader}>
@@ -866,39 +1009,18 @@ const HomePage = () => {
                 <HapticButton
                   style={{ position: "absolute", top: 5, right: 10 }}
                   onPress={() => {
-=======
-          <Animated.View style={[styles.searchPopup, { transform: [{ translateY: popupAnim }] }]}>
-            <View style={styles.searchPopupHeader}>
-              <View style={styles.searchPopupHandle} />
-              <Text style={styles.searchPopupTitle}>Search Results</Text>
-              {searchLoading && <ActivityIndicator size="small" color={theme.primary} style={{ marginLeft: 8 }} />}
-            </View>
-            <FlatList
-              data={searchResults}
-              keyExtractor={(item, idx) => idx.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.searchResultItem}
-                  onPress={() => {
-                    if (item.type === "user") {
-                      navigation.navigate("Profile", { userId: item.id });
-                    } else {
-                      navigation.navigate("PostScreen", { postId: item.id });
-                    }
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
                     setSearchQuery("");
                     setSearchResults([]);
                     animatePopupDown();
                   }}
                 >
-<<<<<<< HEAD
                   <Ionicons name="close" size={24} color="#333" />
                 </HapticButton>
                 {searchLoading && <ActivityIndicator size="small" color={theme.primary} style={{ marginLeft: 8 }} />}
               </View>
               <FlatList
                 data={searchResults}
-                keyExtractor={(item, idx) => idx.toString()}
+                keyExtractor={(item, index) => `${item.type}-${item.id}-${index}`}
                 keyboardShouldPersistTaps="always"
                 renderItem={({ item }) => (
                   <TouchableOpacity
@@ -906,6 +1028,8 @@ const HomePage = () => {
                     onPress={() => {
                       if (item.type === "user") {
                         navigation.navigate("Profile", { userId: item.id });
+                      } else if (item.type === "event" || item.is_event) {
+                        navigation.navigate("EventDetails", { eventId: item.id });
                       } else {
                         navigation.navigate("PostScreen", { postId: item.id });
                       }
@@ -915,7 +1039,7 @@ const HomePage = () => {
                     }}
                   >
                     <Text style={styles.searchResultText}>
-                      {item.type === "user" ? `User: ${item.name}` : `Post: ${item.title}`}
+                      {item.type === "user" ? `User: ${item.name || item.username}` : `Post: ${item.title}`}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -930,149 +1054,198 @@ const HomePage = () => {
 
           {showPostModal && (
             <>
-              {/* Full screen blur behind the post modal */}
               <BlurView
                 intensity={50}
                 tint="light"
                 style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 }}
               />
               <Animated.View style={[styles.postModal, { top: postModalAnim }]}>
-                <HapticButton onPress={closePostModal} style={styles.modalCloseButton}>
-                  <Ionicons name="close" size={24} color="#333" />
-                </HapticButton>
-=======
-                  <Text style={styles.searchResultText}>
-                    {item.type === "user" ? `User: ${item.name}` : `Post: ${item.title}`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              style={{ maxHeight: 300 }}
-              ListEmptyComponent={
-                !searchLoading && searchQuery.trim().length > 0 ? (
-                  <Text style={{ textAlign: "center", color: "#999", marginVertical: 10 }}>No results found</Text>
-                ) : null
-              }
-            />
-          </Animated.View>
-
-          {showPostModal && (
-            <>
-              <BlurView intensity={50} tint="light" style={{ position: "absolute", top: 0, left: 0, right: 0, height: windowHeight * 0.2, zIndex: 100 }} />
-              <Animated.View style={[styles.postModal, { top: postModalAnim }]}>
-                <TouchableOpacity onPress={closePostModal} style={styles.modalCloseButton}>
-                  <Ionicons name="close" size={24} color="#333" />
-                </TouchableOpacity>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-                <Text style={styles.modalTitle}>Create Post</Text>
-                <TextInput
-                  style={[styles.modalInput, { marginBottom: 10 }]}
-                  placeholder="Title"
-                  value={postTitle}
-                  onChangeText={setPostTitle}
-                />
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="What's on your mind?"
-                  multiline
-                  value={postContent}
-                  onChangeText={setPostContent}
-                />
-                <View style={styles.eventButtonContainer}>
-<<<<<<< HEAD
-                  <HapticButton
-=======
-                  <TouchableOpacity
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-                    style={[styles.eventButton, !isEvent && styles.eventButtonActive]}
-                    onPress={() => setIsEvent(false)}
-                  >
-                    <Text style={[styles.eventButtonText, !isEvent && { color: "#fff" }]}>Post</Text>
-<<<<<<< HEAD
-                  </HapticButton>
-                  <HapticButton
-=======
-                  </TouchableOpacity>
-                  <TouchableOpacity
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-                    style={[styles.eventButton, isEvent && styles.eventButtonActive]}
-                    onPress={() => setIsEvent(true)}
-                  >
-                    <Text style={[styles.eventButtonText, isEvent && { color: "#fff" }]}>Event</Text>
-<<<<<<< HEAD
-                  </HapticButton>
-=======
-                  </TouchableOpacity>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-                </View>
-                {isEvent && (
-                  <>
-                    <TextInput
-                      style={styles.eventDateInput}
-                      placeholder="YYYY-MM-DD HH:MM"
-                      value={eventDate}
-                      onChangeText={setEventDate}
-                    />
-                    <TextInput
-                      style={styles.eventDateInput}
-                      placeholder="Latitude"
-                      value={latitude}
-                      onChangeText={setLatitude}
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      style={styles.eventDateInput}
-                      placeholder="Longitude"
-                      value={longitude}
-                      onChangeText={setLongitude}
-                      keyboardType="numeric"
-                    />
-                  </>
-                )}
-<<<<<<< HEAD
-                {/* Post Button */}
-                <HapticButton
-                  style={[styles.modalSubmitButton, { backgroundColor: theme.primary }]}
-                  onPress={handleSubmitPost}
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={[styles.postModalContent, { flexGrow: 1, paddingBottom: 100 }]}
+                  keyboardShouldPersistTaps="handled"
                 >
-                  <Text style={styles.modalSubmitText}>Post</Text>
-                </HapticButton>
-                {/* Delete Button appears only during edit */}
-                {editingPostId && (
-                  <HapticButton
-                    style={[styles.modalSubmitButton, { backgroundColor: "#FF4444", marginTop: 10 }]}
-                    onPress={() => {
-                      Alert.alert("Confirm Delete", "Are you sure you want to delete this post?", [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                          text: "Delete",
-                          style: "destructive",
-                          onPress: async () => {
-                            try {
-                              const token = await AsyncStorage.getItem("userToken");
-                              await axios.delete(`http://192.168.1.231:5000/api/posts/${editingPostId}`, {
-                                headers: { Authorization: `Bearer ${token}` },
-                              });
-                              fetchFeedPosts();
-                              fetchUpcomingEvents();
-                              closePostModal();
-                              Alert.alert("Success", "Post deleted successfully!");
-                            } catch (error) {
-                              console.error("Error deleting post:", error.response?.data || error.message);
-                              Alert.alert("Error", error.response?.data?.error || "Could not delete post.");
-                            }
-                          },
-                        },
-                      ]);
-                    }}
-                  >
-                    <Text style={styles.modalSubmitText}>Delete Post</Text>
+                  <HapticButton onPress={closePostModal} style={styles.modalCloseButton}>
+                    <Ionicons name="close" size={24} color="#333" />
                   </HapticButton>
-                )}
-=======
-                <TouchableOpacity style={[styles.modalSubmitButton, { backgroundColor: theme.primary }]} onPress={handleSubmitPost}>
-                  <Text style={styles.modalSubmitText}>Post</Text>
-                </TouchableOpacity>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+                  <Text style={styles.modalTitle}>{editingPostId ? "Edit Post" : "Create Post"}</Text>
+                  <TextInput
+                    style={[styles.modalInput, { marginBottom: 20 }]}
+                    placeholder="Title"
+                    value={postTitle}
+                    onChangeText={setPostTitle}
+                  />
+                  <TextInput
+                    style={[styles.modalInput, { height: 150 }]}
+                    placeholder="What's on your mind?"
+                    multiline
+                    value={postContent}
+                    onChangeText={setPostContent}
+                    returnKeyType="done" // Ensures the keyboard shows a "Done" button
+                    blurOnSubmit={true} // Ensures the keyboard dismisses on "Done"
+                    onSubmitEditing={Keyboard.dismiss} // Dismisses the keyboard when "Done" is pressed
+                  />
+                  <View style={styles.eventButtonContainer}>
+                    <HapticButton
+                      style={[styles.eventButton, !isEvent && styles.eventButtonActive]}
+                      onPress={() => setIsEvent(false)}
+                    >
+                      <Text style={[styles.eventButtonText, !isEvent && { color: "#fff" }]}>Post</Text>
+                    </HapticButton>
+                    <HapticButton
+                      style={[styles.eventButton, isEvent && styles.eventButtonActive]}
+                      onPress={() => setIsEvent(true)}
+                    >
+                      <Text style={[styles.eventButtonText, isEvent && { color: "#fff" }]}>Event</Text>
+                    </HapticButton>
+                  </View>
+                  {isEvent && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => setIsEditingEventDetails(!isEditingEventDetails)}
+                      >
+                        <Text style={styles.editButtonText}>
+                          {isEditingEventDetails ? "Done" : "Edit"}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <Text style={[styles.eventLabel, styles.spacingAbovePicker]}>Event Date</Text>
+                      <View style={[styles.pickerRow, styles.pickerContainer]}>
+                        {!isEditingEventDetails && (
+                          <View style={styles.pickerOverlay} />
+                        )}
+                        <Picker
+                          selectedValue={eventYear}
+                          style={styles.picker}
+                          itemStyle={{ marginTop: -25 }}
+                          onValueChange={(itemValue) => setEventYear(itemValue)}
+                          enabled={isEditingEventDetails}
+                        >
+                          {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() + i).map((year) => (
+                            <Picker.Item key={year} label={year.toString()} value={year.toString()} />
+                          ))}
+                        </Picker>
+                        <Picker
+                          selectedValue={eventMonth}
+                          style={styles.picker}
+                          itemStyle={{ marginTop: -25 }}
+                          onValueChange={(itemValue) => setEventMonth(itemValue)}
+                          enabled={isEditingEventDetails}
+                        >
+                          {Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, "0")).map((month) => (
+                            <Picker.Item key={month} label={month} value={month} />
+                          ))}
+                        </Picker>
+                        <Picker
+                          selectedValue={eventDay}
+                          style={styles.picker}
+                          itemStyle={{ marginTop: -25 }}
+                          onValueChange={(itemValue) => setEventDay(itemValue)}
+                          enabled={isEditingEventDetails}
+                        >
+                          {Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, "0")).map((day) => (
+                            <Picker.Item key={day} label={day} value={day} />
+                          ))}
+                        </Picker>
+                      </View>
+
+                      <Text style={[styles.eventLabel, styles.spacingAbovePicker]}>Time</Text>
+                      <View style={[styles.pickerRow, styles.pickerContainer]}>
+                        {!isEditingEventDetails && (
+                          <View style={styles.pickerOverlay} />
+                        )}
+                        <Picker
+                          selectedValue={eventHour}
+                          style={styles.picker}
+                          itemStyle={{ marginTop: -25 }}
+                          onValueChange={(itemValue) => setEventHour(itemValue)}
+                          enabled={isEditingEventDetails}
+                        >
+                          {Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, "0")).map((hour) => (
+                            <Picker.Item key={hour} label={hour} value={hour} />
+                          ))}
+                        </Picker>
+                        <Picker
+                          selectedValue={eventMinute}
+                          style={styles.picker}
+                          itemStyle={{ marginTop: -25 }}
+                          onValueChange={(itemValue) => setEventMinute(itemValue)}
+                          enabled={isEditingEventDetails}
+                        >
+                          {["00", "15", "30", "45"].map((minute) => (
+                            <Picker.Item key={minute} label={minute} value={minute} />
+                          ))}
+                        </Picker>
+                        <Picker
+                          selectedValue={eventAmPm}
+                          style={styles.picker}
+                          itemStyle={{ marginTop: -25 }}
+                          onValueChange={(itemValue) => setEventAmPm(itemValue)}
+                          enabled={isEditingEventDetails}
+                        >
+                          <Picker.Item label="AM" value="AM" />
+                          <Picker.Item label="PM" value="PM" />
+                        </Picker>
+                      </View>
+
+                      <Text style={styles.eventLabel}>Location</Text>
+                      <TextInput
+                        style={styles.modalInput}
+                        placeholder="Enter location"
+                        value={locationInput}
+                        onChangeText={setLocationInput}
+                      />
+                      <TouchableOpacity style={styles.uploadButton} onPress={handleSetLocation}>
+                        <Text style={styles.uploadButtonText}>Set Location</Text>
+                      </TouchableOpacity>
+                      {mapVisible && latitude && longitude && (
+                        <MapView
+                          style={styles.map}
+                          initialRegion={{
+                            latitude,
+                            longitude,
+                            latitudeDelta: 0.01,
+                            longitudeDelta: 0.01,
+                          }}
+                        >
+                          <Marker coordinate={{ latitude, longitude }} title="Selected Location" />
+                        </MapView>
+                      )}
+
+                      <TouchableOpacity
+                        style={styles.uploadButton}
+                        onPress={async () => {
+                          const uri = await uploadBannerPhoto();
+                          if (uri) setBannerPhotoUri(uri);
+                        }}
+                      >
+                        <Text style={styles.uploadButtonText}>
+                          {bannerPhotoUri ? "Change Banner Photo" : "Add Banner Photo"}
+                        </Text>
+                      </TouchableOpacity>
+                      {bannerPhotoUri && (
+                        <Image source={{ uri: bannerPhotoUri }} style={styles.bannerPreview} />
+                      )}
+                    </>
+                  )}
+                  <HapticButton
+                    style={[
+                      styles.modalSubmitButton,
+                      { backgroundColor: theme.mode === "blackAndWhite" ? "#000" : theme.primary }, // Black in black-and-white mode
+                    ]}
+                    onPress={handleSubmitPost}
+                  >
+                    <Text
+                      style={[
+                        styles.modalSubmitText,
+                        { color: theme.mode === "blackAndWhite" ? "#fff" : "#fff" }, // White text in black-and-white mode
+                      ]}
+                    >
+                      {editingPostId ? "Update" : isEvent ? "Create Event" : "Post"}
+                    </Text>
+                  </HapticButton>
+                </ScrollView>
               </Animated.View>
             </>
           )}
@@ -1084,530 +1257,243 @@ const HomePage = () => {
 
 const FeedItem = ({ item, currentUserId, onDelete, onEdit, navigation, theme }) => {
   const { day, monthName, timeString } = formatDateString(item.created_at);
-  const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
+  const [likeCount, setLikeCount] = useState(parseInt(item.total_likes) || 0);
+  const [liked, setLiked] = useState(item.user_liked || false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
-  const [commentLoading, setCommentLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
-    const fetchLikes = async () => {
-      try {
-        const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-        const response = await axios.get(`http://192.168.1.231:5000/api/posts/${item.id}/likes`, {
-=======
-        const response = await axios.get(`http://10.0.2.2:5000/api/posts/${item.id}/likes`, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setLikeCount(response.data.like_count);
-        const currentUser = await AsyncStorage.getItem("userId");
-        setLiked(response.data.user_ids?.includes(currentUser));
-      } catch (error) {
-        console.error("Error fetching likes:", error);
-      }
-    };
-
     const fetchComments = async () => {
       try {
-        const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-        const response = await axios.get(`http://192.168.1.231:5000/api/posts/${item.id}/comments`, {
-=======
-        const response = await axios.get(`http://10.0.2.2:5000/api/posts/${item.id}/comments`, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setComments(response.data);
+        const res = await apiClient.get(`/posts/${item.id}/comments`);
+        setComments(res.data);
       } catch (error) {
-        console.error("Error fetching comments for post:", item.id, error);
+        console.error("Error fetching comments:", error);
       }
     };
-
-    fetchLikes();
     fetchComments();
   }, [item.id]);
 
-  const handleLike = async () => {
+  const submitComment = async () => {
+    if (!newComment.trim()) return;
     try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        Alert.alert("Error", "Please log in to like/unlike posts.");
-        return;
-      }
-      if (liked) {
-<<<<<<< HEAD
-        await axios.delete(`http://192.168.1.231:5000/api/posts/${item.id}/like`, {
-=======
-        await axios.delete(`http://10.0.2.2:5000/api/posts/${item.id}/like`, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setLiked(false);
-        setLikeCount((prev) => prev - 1);
-      } else {
-<<<<<<< HEAD
-        await axios.post(`http://192.168.1.231:5000/api/posts/${item.id}/like`, {}, {
-=======
-        await axios.post(`http://10.0.2.2:5000/api/posts/${item.id}/like`, {}, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setLiked(true);
-        setLikeCount((prev) => prev + 1);
-      }
-    } catch (error) {
-      console.error("Error toggling like:", error);
-      Alert.alert("Error", "Could not update like status.");
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!newComment.trim()) {
-      Alert.alert("Error", "Comment cannot be empty.");
-      return;
-    }
-    setCommentLoading(true);
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        Alert.alert("Error", "Please log in to comment.");
-        return;
-      }
-      const response = await axios.post(
-<<<<<<< HEAD
-        `http://192.168.1.231:5000/api/posts/${item.id}/comments`,
-=======
-        `http://10.0.2.2:5000/api/posts/${item.id}/comments`,
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        { content: newComment },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setComments([response.data.comment, ...comments]);
+      const res = await apiClient.post(`/posts/${item.id}/comments`, { content: newComment });
+      setComments([res.data.comment, ...comments]);
       setNewComment("");
-      Alert.alert("Success", "Comment added successfully!");
+      setIsTyping(false);
+      Alert.alert("Success", "Comment added successfully! The creator has been notified.");
     } catch (error) {
       console.error("Error adding comment:", error.response?.data || error.message);
       Alert.alert("Error", error.response?.data?.error || "Could not add comment.");
-    } finally {
-      setCommentLoading(false);
     }
   };
 
-  const handleDeleteComment = async (commentId) => {
-    Alert.alert("Confirm Delete", "Are you sure you want to delete this comment?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-            await axios.delete(`http://192.168.1.231:5000/api/posts/${item.id}/comments/${commentId}`, {
-=======
-            await axios.delete(`http://10.0.2.2:5000/api/posts/${item.id}/comments/${commentId}`, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            setComments(comments.filter((comment) => comment.id !== commentId));
-            Alert.alert("Success", "Comment deleted successfully!");
-          } catch (error) {
-            console.error("Error deleting comment:", error.response?.data || error.message);
-            Alert.alert("Error", error.response?.data?.error || "Could not delete comment.");
-          }
-        },
-      },
-    ]);
+  const deleteComment = async (commentId) => {
+    try {
+      await apiClient.delete(`/posts/${item.id}/comments/${commentId}`);
+      setComments(comments.filter((c) => c.id !== commentId));
+      Alert.alert("Success", "Comment deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting comment:", error.response?.data || error.message);
+      Alert.alert("Error", error.response?.data?.error || "Could not delete comment.");
+    }
   };
 
-  const displayedComments = comments.slice(0, 3);
-  const hasMoreComments = comments.length >= 4;
+  const navigateToDetail = () => {
+    if (item.is_event) {
+      navigation.navigate("EventDetails", { eventId: item.id });
+    } else {
+      navigation.navigate("PostScreen", { postId: item.id });
+    }
+  };
+
+  const handleCommentChange = (text) => {
+    setNewComment(text);
+    setIsTyping(text.trim().length > 0);
+  };
 
   return (
-    <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate("PostScreen", { postId: item.id })}>
+    <TouchableOpacity activeOpacity={0.9} onPress={navigateToDetail}>
       <View style={styles.feedCard}>
-<<<<<<< HEAD
-=======
-        {currentUserId === item.user_id && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={[styles.iconButton, styles.deleteIconButton]}
-              onPressIn={(e) => e.stopPropagation()}
-              onPress={() => onDelete(item.id)}
-            >
-              <Ionicons name="trash-outline" size={20} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconButton, styles.editIconButton, { backgroundColor: theme.primary }]}
-              onPressIn={(e) => e.stopPropagation()}
-              onPress={() => onEdit(item)}
-            >
-              <Ionicons name="pencil-outline" size={20} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        )}
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        <View style={[styles.dateBox, { backgroundColor: theme.primary }]}>
-          <Text style={styles.dateDayText}>{day}</Text>
-          <Text style={styles.dateMonthText}>{monthName}</Text>
+        <View
+          style={[
+            styles.dateBox,
+            {
+              backgroundColor: theme.mode === "blackAndWhite" ? "#000" : theme.primary, // Reflect theme
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={
+              theme.mode === "blackAndWhite"
+                ? ["#000", "#333", "rgba(0, 0, 0, 0)"] // Black fading to transparent
+                : [theme.primary, `${theme.primary}CC`, "rgba(0, 0, 0, 0)"] // Primary color fading
+            }
+            style={styles.dateBoxGradient}
+          />
+          <Text
+            style={[
+              styles.dateDayText,
+              { color: theme.mode === "blackAndWhite" ? "#fff" : "#fff" }, // White text for both modes
+            ]}
+          >
+            {day}
+          </Text>
+          <Text
+            style={[
+              styles.dateMonthText,
+              { color: theme.mode === "blackAndWhite" ? "#fff" : "#fff" }, // White text for both modes
+            ]}
+          >
+            {monthName}
+          </Text>
         </View>
-<<<<<<< HEAD
-        {/* Move author info below the date to the right */}
-        <View style={styles.authorContainerCustom}>
-=======
-        <View style={[styles.authorContainer, { position: "absolute", top: 10, left: 70 }]}>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+        <View style={styles.feedAuthorContainer}>
           <Image
             source={{ uri: item.profile_picture || "https://via.placeholder.com/30" }}
-            style={styles.authorPic}
+            style={styles.feedAuthorPic}
           />
-          <Text style={styles.authorName}>{item.username || "Unknown"}</Text>
+          <Text style={styles.feedAuthorName}>{item.username || item.author || "Unknown"}</Text>
         </View>
-<<<<<<< HEAD
+        {item.is_event && item.banner_photo && (
+          <Image source={{ uri: item.banner_photo }} style={styles.bannerPhoto} />
+        )}
         <View style={styles.feedContent}>
           {item.title && <Text style={styles.feedTitle}>{item.title}</Text>}
           <Text style={styles.feedTimeContent}>{timeString}</Text>
           <Text style={styles.feedText}>{item.content || "No content"}</Text>
-        </View>
-=======
-        {item.title && <Text style={styles.feedTitle}>{item.title}</Text>}
-        <Text style={styles.feedTimeContent}>{timeString}</Text>
-        <Text style={styles.feedText}>{item.content || "No content"}</Text>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        <TouchableOpacity style={styles.likeButton} onPress={handleLike}>
-          <Ionicons name={liked ? "heart" : "heart-outline"} size={20} color={liked ? "red" : "#333"} />
-          <Text style={styles.likeCount}>{likeCount}</Text>
-        </TouchableOpacity>
-        <View style={styles.commentsContainer}>
-          {displayedComments.map((comment) => (
-            <View key={comment.id} style={styles.commentItem}>
-              <Text style={styles.commentUser}>{comment.username}</Text>
-              <Text style={styles.commentContent}>{comment.content}</Text>
-              <Text style={styles.commentDate}>{new Date(comment.created_at).toLocaleString()}</Text>
-              {currentUserId === comment.user_id && (
-                <TouchableOpacity
-                  style={styles.deleteCommentButton}
-                  onPress={() => handleDeleteComment(comment.id)}
-                >
-<<<<<<< HEAD
-                  <Ionicons name="trash-outline" size={16} color="#FF4444" />
-=======
-                  <Ionicons name="trash" size={16} color="#fff" />
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-                </TouchableOpacity>
-              )}
-            </View>
-          ))}
-          {hasMoreComments && (
-            <TouchableOpacity onPress={() => navigation.navigate("PostScreen", { postId: item.id })}>
-              <Text style={[styles.viewCommentsText, { color: theme.primary }]}>View All Comments</Text>
-            </TouchableOpacity>
+          {item.location && (
+            <Text style={[styles.feedText, { fontFamily: "AirbnbCereal-Medium", fontSize: 14 }]}>
+              {item.location}
+            </Text>
           )}
-        </View>
-        <View style={styles.commentInputContainer}>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Add a comment..."
-            value={newComment}
-            onChangeText={setNewComment}
-            multiline
-          />
-<<<<<<< HEAD
-          {newComment.trim() !== "" && (
-            <TouchableOpacity
-              style={[
-                styles.commentSubmitButton,
-                commentLoading && styles.disabledButton,
-                { backgroundColor: theme.primary }
-              ]}
-              onPress={handleAddComment}
-              disabled={commentLoading}
-            >
-              <Text style={styles.commentSubmitText}>
-                {commentLoading ? "Posting..." : "Post"}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        {currentUserId === item.user_id && (
-          <View style={styles.actionButtons}>
-            <HapticButton
-              style={styles.iconButton}
-              onPress={() => onEdit(item)}
-            >
-              <Ionicons name="pencil-outline" size={20} color="#007AFF" />
-            </HapticButton>
+          <View style={styles.actionContainer}>
+            {isTyping ? (
+              <TouchableOpacity
+                style={[styles.commentPostButton, theme.mode === "blackAndWhite" && { backgroundColor: "#000" }]}
+                onPress={submitComment}
+                disabled={!newComment.trim()}
+              >
+                <Text style={styles.commentPostButtonText}>Post</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.likeButton}
+                onPress={() => toggleLike(item.id, liked, setLiked, setLikeCount)}
+              >
+                <Ionicons name={liked ? "heart" : "heart-outline"} size={20} color={liked ? "red" : "#333"} />
+                <Text style={styles.likeCount}>{likeCount}</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
-=======
-          <TouchableOpacity
-            style={[styles.commentSubmitButton, commentLoading && styles.disabledButton, { backgroundColor: theme.primary }]}
-            onPress={handleAddComment}
-            disabled={commentLoading}
-          >
-            <Text style={styles.commentSubmitText}>{commentLoading ? "Posting..." : "Post"}</Text>
-          </TouchableOpacity>
+          <View style={{ marginTop: 10 }}>
+            <FlatList
+              data={comments}
+              keyExtractor={(comment, index) => `comment-${comment.id}-${index}`}
+              renderItem={({ item: comment }) => (
+                <View key={comment.id} style={{ marginBottom: 5 }}>
+                  <Text style={{ fontWeight: "bold" }}>{comment.username}:</Text>
+                  <Text>{comment.content}</Text>
+                  {comment.user_id === currentUserId && (
+                    <TouchableOpacity onPress={() => deleteComment(comment.id)}>
+                      <Text style={{ color: "red", fontSize: 12 }}>Delete</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            />
+            <View style={styles.commentInputContainer}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Add a comment..."
+                value={newComment}
+                onChangeText={handleCommentChange}
+              />
+            </View>
+          </View>
         </View>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       </View>
     </TouchableOpacity>
   );
 };
 
-const EventItem = ({ item, currentUserId, onDelete, onEdit, navigation, theme }) => {
-  const [likedEvent, setLikedEvent] = useState(false);
-  const [likeCountEvent, setLikeCountEvent] = useState(0);
-  const [commentsEvent, setCommentsEvent] = useState([]);
-  const [newCommentEvent, setNewCommentEvent] = useState("");
-  const [commentLoadingEvent, setCommentLoadingEvent] = useState(false);
+const EventItem = ({ item, navigation, theme }) => {
+  const [liked, setLiked] = useState(item.user_liked || false);
+  const [likeCount, setLikeCount] = useState(parseInt(item.total_likes) || 0);
+  const { day, monthName, timeString } = formatDateString(item.event_date);
 
-  useEffect(() => {
-    const fetchLikes = async () => {
-      try {
-        const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-        const response = await axios.get(`http://192.168.1.231:5000/api/posts/${item.id}/likes`, {
-=======
-        const response = await axios.get(`http://10.0.2.2:5000/api/posts/${item.id}/likes`, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setLikeCountEvent(response.data.like_count);
-        const currentUser = await AsyncStorage.getItem("userId");
-        setLikedEvent(response.data.user_ids?.includes(currentUser));
-      } catch (error) {
-        console.error("Error fetching likes for event:", error);
-      }
-    };
-
-    const fetchComments = async () => {
-      try {
-        const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-        const response = await axios.get(`http://192.168.1.231:5000/api/posts/${item.id}/comments`, {
-=======
-        const response = await axios.get(`http://10.0.2.2:5000/api/posts/${item.id}/comments`, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setCommentsEvent(response.data);
-      } catch (error) {
-        console.error("Error fetching comments for event:", item.id, error);
-      }
-    };
-
-    fetchLikes();
-    fetchComments();
-  }, [item.id]);
-
-  const handleLikeEvent = async () => {
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        Alert.alert("Error", "Please log in to like/unlike events.");
-        return;
-      }
-      if (likedEvent) {
-<<<<<<< HEAD
-        await axios.delete(`http://192.168.1.231:5000/api/posts/${item.id}/like`, {
-=======
-        await axios.delete(`http://10.0.2.2:5000/api/posts/${item.id}/like`, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setLikedEvent(false);
-        setLikeCountEvent((prev) => prev - 1);
-      } else {
-<<<<<<< HEAD
-        await axios.post(`http://192.168.1.231:5000/api/posts/${item.id}/like`, {}, {
-=======
-        await axios.post(`http://10.0.2.2:5000/api/posts/${item.id}/like`, {}, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setLikedEvent(true);
-        setLikeCountEvent((prev) => prev + 1);
-      }
-    } catch (error) {
-      console.error("Error toggling like for event:", error);
-      Alert.alert("Error", "Could not update like status for event.");
-    }
-  };
-
-  const handleAddCommentEvent = async () => {
-    if (!newCommentEvent.trim()) {
-      Alert.alert("Error", "Comment cannot be empty.");
-      return;
-    }
-    setCommentLoadingEvent(true);
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        Alert.alert("Error", "Please log in to comment.");
-        return;
-      }
-      const response = await axios.post(
-<<<<<<< HEAD
-        `http://192.168.1.231:5000/api/posts/${item.id}/comments`,
-=======
-        `http://10.0.2.2:5000/api/posts/${item.id}/comments`,
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        { content: newCommentEvent },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setCommentsEvent([response.data.comment, ...commentsEvent]);
-      setNewCommentEvent("");
-      Alert.alert("Success", "Comment added successfully!");
-    } catch (error) {
-      console.error("Error adding comment to event:", error.response?.data || error.message);
-      Alert.alert("Error", error.response?.data?.error || "Could not add comment.");
-    } finally {
-      setCommentLoadingEvent(false);
-    }
-  };
-
-  const handleDeleteCommentEvent = async (commentId) => {
-    Alert.alert("Confirm Delete", "Are you sure you want to delete this comment?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
-            await axios.delete(`http://192.168.1.231:5000/api/posts/${item.id}/comments/${commentId}`, {
-=======
-            await axios.delete(`http://10.0.2.2:5000/api/posts/${item.id}/comments/${commentId}`, {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            setCommentsEvent(commentsEvent.filter((comment) => comment.id !== commentId));
-            Alert.alert("Success", "Comment deleted successfully!");
-          } catch (error) {
-            console.error("Error deleting comment from event:", error.response?.data || error.message);
-            Alert.alert("Error", error.response?.data?.error || "Could not delete comment.");
-          }
-        },
-      },
-    ]);
-  };
-
-  const displayedCommentsEvent = commentsEvent.slice(0, 3);
-  const hasMoreCommentsEvent = commentsEvent.length >= 4;
+  const hasBanner = !!item.banner_photo;
+  const isContentLong = (item.content || "").length > 100;
 
   return (
     <TouchableOpacity
-      style={styles.eventCard}
-      onPress={() => navigation.navigate("EventDetails", { eventId: item.id, event: item })}
+      onPress={() => navigation.navigate("EventDetails", { eventId: item.id })}
+      style={[styles.eventCard, !hasBanner && styles.eventCardNoBanner]}
       activeOpacity={0.8}
     >
-<<<<<<< HEAD
-=======
-      {currentUserId === item.user_id && (
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[styles.iconButton, styles.deleteIconButton]}
-            onPressIn={(e) => e.stopPropagation()}
-            onPress={() => onDelete(item.id)}
-          >
-            <Ionicons name="trash-outline" size={20} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.iconButton, styles.editIconButton, { backgroundColor: theme.primary }]}
-            onPressIn={(e) => e.stopPropagation()}
-            onPress={() => onEdit(item)}
-          >
-            <Ionicons name="pencil-outline" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      )}
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-      <View style={[styles.dateBox, { backgroundColor: theme.primary }]}>
-        <Text style={styles.dateDayText}>{formatDateString(item.event_date).day}</Text>
-        <Text style={styles.dateMonthText}>{formatDateString(item.event_date).monthName}</Text>
+      <View
+        style={[
+          styles.dateBox,
+          {
+            backgroundColor: theme.mode === "blackAndWhite" ? "#000" : theme.primary, // Reflect theme
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={
+            theme.mode === "blackAndWhite"
+              ? ["#000", "#333", "rgba(0, 0, 0, 0)"] // Black fading to transparent
+              : [theme.primary, `${theme.primary}CC`, "rgba(0, 0, 0, 0)"] // Primary color fading
+          }
+          style={styles.dateBoxGradient}
+        />
+        <Text
+          style={[
+            styles.dateDayText,
+            { color: theme.mode === "blackAndWhite" ? "#fff" : "#fff" }, // White text for both modes
+          ]}
+        >
+          {day}
+        </Text>
+        <Text
+          style={[
+            styles.dateMonthText,
+            { color: theme.mode === "blackAndWhite" ? "#fff" : "#fff" }, // White text for both modes
+          ]}
+        >
+          {monthName}
+        </Text>
       </View>
-      <View style={[styles.authorContainer, { position: "absolute", top: 10, left: 70 }]}>
+      <View style={styles.upcomingAuthorContainer}>
         <Image
           source={{ uri: item.profile_picture || "https://via.placeholder.com/30" }}
-          style={styles.authorPic}
+          style={styles.upcomingAuthorPic}
         />
-        <Text style={styles.authorName}>{item.username || "Unknown"}</Text>
+        <Text style={styles.upcomingAuthorName}>{item.username || "Unknown"}</Text>
       </View>
-      {item.image ? (
-        <Image source={{ uri: item.image }} style={styles.eventImage} />
-      ) : (
-        <View style={styles.noImagePlaceholder}>
-          <Text style={{ color: "#999" }}>No Image</Text>
-        </View>
+      {hasBanner && (
+        <Image source={{ uri: item.banner_photo }} style={styles.eventBannerPhoto} />
       )}
       <Text style={styles.eventTitle}>{item.title}</Text>
-      {item.latitude && item.longitude && (
-        <Text style={styles.eventLocation}>Location: Lat {item.latitude}, Lng {item.longitude}</Text>
+      <Text style={styles.feedTimeContent}>{timeString}</Text>
+      {isContentLong ? (
+        <ScrollView style={styles.eventContentScroll} nestedScrollEnabled={true}>
+          <Text style={styles.feedText}>{item.content}</Text>
+        </ScrollView>
+      ) : (
+        <Text style={styles.feedText}>{item.content}</Text>
       )}
-      <TouchableOpacity style={styles.likeButton} onPress={handleLikeEvent}>
-        <Ionicons name={likedEvent ? "heart" : "heart-outline"} size={20} color={likedEvent ? "red" : "#333"} />
-        <Text style={styles.likeCount}>{likeCountEvent}</Text>
+      <Text style={styles.eventLocation}>
+        {item.location || "No location provided"}
+      </Text>
+      <TouchableOpacity
+        style={styles.likeButton}
+        onPress={() => toggleLike(item.id, liked, setLiked, setLikeCount)}
+      >
+        <Ionicons name={liked ? "heart" : "heart-outline"} size={16} color={liked ? "red" : "#333"} />
+        <Text style={styles.likeCount}>{likeCount}</Text>
       </TouchableOpacity>
-      <View style={styles.commentsContainer}>
-        {displayedCommentsEvent.map((comment) => (
-          <View key={comment.id} style={styles.commentItem}>
-            <Text style={styles.commentUser}>{comment.username}</Text>
-            <Text style={styles.commentContent}>{comment.content}</Text>
-            <Text style={styles.commentDate}>{new Date(comment.created_at).toLocaleString()}</Text>
-            {currentUserId === comment.user_id && (
-              <TouchableOpacity style={styles.deleteCommentButton} onPress={() => handleDeleteCommentEvent(comment.id)}>
-<<<<<<< HEAD
-                <Ionicons name="trash-outline" size={16} color="#FF4444" />
-=======
-                <Ionicons name="trash" size={16} color="#fff" />
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
-        {hasMoreCommentsEvent && (
-          <TouchableOpacity onPress={() => navigation.navigate("EventDetails", { eventId: item.id, event: item })}>
-            <Text style={[styles.viewCommentsText, { color: theme.primary }]}>View All Comments</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <View style={styles.commentInputContainer}>
-        <TextInput
-          style={styles.commentInput}
-          placeholder="Add a comment..."
-          value={newCommentEvent}
-          onChangeText={setNewCommentEvent}
-          multiline
-        />
-<<<<<<< HEAD
-        {newCommentEvent.trim() !== "" && (
-          <TouchableOpacity
-            style={[
-              styles.commentSubmitButton,
-              commentLoadingEvent && styles.disabledButton,
-              { backgroundColor: theme.primary }
-            ]}
-            onPress={handleAddCommentEvent}
-            disabled={commentLoadingEvent}
-          >
-            <Text style={styles.commentSubmitText}>
-              {commentLoadingEvent ? "Posting..." : "Post"}
-            </Text>
-          </TouchableOpacity>
-        )}
-=======
-        <TouchableOpacity
-          style={[styles.commentSubmitButton, commentLoadingEvent && styles.disabledButton, { backgroundColor: theme.primary }]}
-          onPress={handleAddCommentEvent}
-          disabled={commentLoadingEvent}
-        >
-          <Text style={styles.commentSubmitText}>{commentLoadingEvent ? "Posting..." : "Post"}</Text>
-        </TouchableOpacity>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-      </View>
     </TouchableOpacity>
   );
 };
@@ -1618,52 +1504,72 @@ const styles = StyleSheet.create({
   menuContainer: {
     position: "absolute",
     width: 250,
-    height: "100%",
+    height: "200%",
     backgroundColor: "#fff",
     zIndex: 10,
-    paddingTop: 20,
+    paddingTop: 90,
     paddingHorizontal: 20,
     borderTopRightRadius: 20,
     borderBottomRightRadius: 20,
+    marginTop: 0,
   },
-  profileHeader: { alignItems: "center", marginBottom: 20 },
-  profilePicContainer: { position: "relative" },
-  profilePic: { width: 70, height: 70, borderRadius: 35 },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 0,
+  },
+  profilePic: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+  },
+  profileInfo: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 20,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333",
+    top: 40,
+  },
+  onlineStatusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: -25,
+    paddingTop: 50,
+    top: -10,
+  },
   onlineIndicator: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
     width: 14,
     height: 14,
     borderRadius: 7,
     backgroundColor: "green",
     borderWidth: 2,
     borderColor: "#fff",
+    marginRight: 5,
   },
   onlineToggleButton: {
-    marginTop: 5,
     backgroundColor: "#f0f0f0",
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 15,
   },
-  onlineToggleText: { fontFamily: "AirbnbCereal-Medium", color: "#333" },
+  onlineToggleText: {
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333",
+  },
   menuItem: { flexDirection: "row", alignItems: "center", paddingVertical: 15 },
   menuText: { marginLeft: 15, fontSize: 16, fontFamily: "AirbnbCereal-Medium" },
   overlay: { flex: 1 },
   homeScreen: { flex: 1, backgroundColor: "#f9f9f9" },
-<<<<<<< HEAD
   headerGradient: {
-=======
-  header: {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 15,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-<<<<<<< HEAD
-    overflow: "hidden", // ensures the gradient is clipped by the rounded corners
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1676,9 +1582,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 5,  // Limits the gloss to the bottom
+    height: 5,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+  },
+  header3DEffect: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 10, // Adjust height for the effect
+    zIndex: 1,
   },
   menuButton: {
     position: "absolute",
@@ -1712,32 +1626,23 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 5,
   },
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   locationTitle: { color: "#fff", fontSize: 12, fontFamily: "AirbnbCereal-Medium", marginTop: 5, textAlign: "center" },
   locationText: { color: "#fff", fontSize: 18, fontFamily: "AirbnbCereal-Medium", marginBottom: 10, textAlign: "center" },
-  /* --- Updated Search Container --- */
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "transparent", // make background transparent
+    backgroundColor: "transparent",
     borderRadius: 25,
     height: 40,
     marginBottom: 10,
     paddingHorizontal: 10,
-    // Optionally, add a subtle border if needed:
-    // borderWidth: 1,
-    // borderColor: "rgba(255,255,255,0.3)",
   },
-  searchInput: { flex: 1, paddingHorizontal: 8, fontFamily: "AirbnbCereal-Medium", color: "#fff" },
-  /* --- Updated Filter Button --- */
-=======
-  },
-  menuButton: { position: "absolute", left: 20, top: 50, zIndex: 2 },
-  notificationIcon: { position: "absolute", right: 20, top: 50, zIndex: 2 },
-  locationTitle: { color: "#fff", fontSize: 12, fontFamily: "AirbnbCereal-Medium", marginTop: 5, textAlign: "center" },
-  locationText: { color: "#fff", fontSize: 18, fontFamily: "AirbnbCereal-Medium", marginBottom: 10, textAlign: "center" },
-  searchContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 25, height: 40, marginBottom: 10 },
-  searchInput: { flex: 1, paddingHorizontal: 8, fontFamily: "AirbnbCereal-Medium", color: "#333" },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+  searchInput: { flex: 1, paddingHorizontal: 8, fontFamily: "AirbnbCereal-Medium" },
   filterButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1747,147 +1652,117 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
-<<<<<<< HEAD
     backgroundColor: "rgba(255, 255, 255, 0.2)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 2,
-    elevation: 5,
   },
-  mainContent: { 
-    flex: 1, 
-    backgroundColor: "#f9f9f9", 
-    // removed horizontal padding
+  mainContent: {
+    flex: 1,
+    backgroundColor: "#f9f9f9",
   },
-  sectionTitle: { 
-    fontSize: 18, 
-    marginTop: 20, 
-    marginLeft: 10, // Added 5pt offset
-    fontFamily: "AirbnbCereal-Medium", 
-    color: "#333" 
+  sectionTitle: {
+    fontSize: 18,
+    marginTop: 20,
+    marginLeft: 10,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333"
   },
-  feedSectionTitle: { 
-    fontSize: 18, 
-    marginTop: 10, 
-    marginLeft: 10, // Added 5pt offset
-    fontFamily: "AirbnbCereal-Medium", 
-    color: "#333" 
+  feedSectionTitle: {
+    fontSize: 18,
+    marginTop: 10,
+    marginLeft: 10,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333"
   },
-=======
-  },
-  filterText: { color: "#fff", fontFamily: "AirbnbCereal-Medium", fontSize: 14 },
-  mainContent: { flex: 1, paddingHorizontal: 20, backgroundColor: "#f9f9f9" },
-  sectionTitle: { fontSize: 18, marginTop: 20, fontFamily: "AirbnbCereal-Medium", color: "#333" },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   dateBox: {
     position: "absolute",
     top: 10,
     left: 10,
     width: 50,
-    height: 35,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    height: 50,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
+    backgroundColor: "#000", // Default to black for consistency
   },
-  dateDayText: { fontSize: 17, fontWeight: "bold", color: "#fff", lineHeight: 19 },
-  dateMonthText: { fontSize: 7, color: "#fff" },
-<<<<<<< HEAD
-  /* --- Updated Event Card --- */
+  dateBoxGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 8, // Match the dateBox border radius
+  },
+  dateDayText: { fontSize: 20, fontWeight: "bold", color: "#fff", lineHeight: 19 },
+  dateMonthText: { fontSize: 11, color: "#fff" },
   eventCard: {
     width: width * 0.6,
+    height: 280,
     marginRight: 15,
     borderRadius: 12,
     backgroundColor: "#fff",
     padding: 10,
     borderWidth: 1,
     borderColor: "#ccc",
-=======
-  eventCard: {
-    width: width * 0.6,
-    marginRight: 15,
-    borderRadius: 10,
-    backgroundColor: "#fff",
-    padding: 10,
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-<<<<<<< HEAD
     shadowRadius: 5,
     marginBottom: 10,
     position: "relative",
-    overflow: "visible",
-=======
-    shadowRadius: 4,
-    marginBottom: 10,
-    position: "relative",
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+    overflow: "hidden",
   },
-  eventImage: { width: "100%", height: 100, borderRadius: 8, marginTop: 40, marginBottom: 8, resizeMode: "cover" },
-  noImagePlaceholder: {
+  eventCardNoBanner: {
+    height: 280,
+  },
+  eventBannerPhoto: {
     width: "100%",
-    height: 100,
+    height: 60,
     borderRadius: 8,
-    marginTop: 40,
-    marginBottom: 8,
-    backgroundColor: "#eee",
-    justifyContent: "center",
-    alignItems: "center",
+    marginTop: 7.5,
+    marginBottom: 5,
   },
-  eventTitle: { fontSize: 16, fontFamily: "AirbnbCereal-Medium", color: "#333", marginBottom: 4 },
-  eventLocation: { fontSize: 14, fontFamily: "AirbnbCereal-Medium", color: "#333" },
-<<<<<<< HEAD
-  /* --- Updated Feed Card --- */
+  eventTitle: {
+    fontSize: 16,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333",
+    marginTop: 5,
+    marginBottom: 2
+  },
+  eventContentScroll: {
+    maxHeight: 40,
+    marginBottom: 2,
+  },
+  eventLocation: {
+    fontSize: 14,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333",
+    marginBottom: 5,
+  },
   feedCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
-    marginHorizontal: 12,  // keeps posts slimer by ~1/4 inch on each side
+    marginHorizontal: 12,
     borderWidth: 1,
     borderColor: "#ccc",
-=======
-  feedCard: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-<<<<<<< HEAD
     shadowRadius: 5,
     overflow: "visible",
   },
-  /* --- Updated Floating Action Button --- */
   fab: {
     position: "absolute",
-    bottom: 70, // lowered accordingly
+    bottom: 70,
     alignSelf: "center",
-=======
-    shadowRadius: 4,
-    position: "relative",
-  },
-  feedTimeContent: { fontSize: 10, color: "#666", marginTop: 4 },
-  feedTitle: { fontSize: 16, fontFamily: "AirbnbCereal-Medium", color: "#333", marginTop: 50, marginBottom: 5 },
-  feedText: { fontSize: 14, color: "#333", fontFamily: "AirbnbCereal-Medium", marginBottom: 10 },
-  fab: {
-    position: "absolute",
-    bottom: 60,
-    right: 180,
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-<<<<<<< HEAD
     elevation: 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -1897,30 +1772,17 @@ const styles = StyleSheet.create({
   },
   navBar: {
     position: "absolute",
-    bottom: 0, // raised nav bar
+    bottom: 0,
     left: 0,
     right: 0,
     flexDirection: "row",
     justifyContent: "space-around",
     backgroundColor: "#fff",
-    paddingVertical: 20, // increased vertical padding if desired
+    paddingVertical: 20,
     borderTopWidth: 1,
     borderTopColor: "#eee",
     zIndex: 99,
     marginBottom: 0,
-
-=======
-    elevation: 4,
-    zIndex: 99,
-  },
-  navBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    backgroundColor: "#fff",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   },
   navItem: { alignItems: "center" },
   navText: { fontSize: 12, fontFamily: "AirbnbCereal-Medium", marginTop: 4 },
@@ -1928,11 +1790,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-<<<<<<< HEAD
-    height: windowHeight * 1,
-=======
-    height: windowHeight * 0.8,
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+    height: windowHeight * 0.9,
     backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -1942,63 +1800,18 @@ const styles = StyleSheet.create({
   modalCloseButton: { alignSelf: "flex-end" },
   modalTitle: { fontSize: 20, fontFamily: "AirbnbCereal-Medium", marginVertical: 10 },
   modalInput: { borderWidth: 1, borderColor: "#ddd", borderRadius: 10, padding: 10, height: 100, textAlignVertical: "top", marginBottom: 20 },
-  modalSubmitButton: { paddingVertical: 12, borderRadius: 10, alignItems: "center" },
+  modalSubmitButton: { paddingVertical: 12, borderRadius: 10, alignItems: "center", marginTop: 20 },
   modalSubmitText: { color: "#fff", fontSize: 16, fontFamily: "AirbnbCereal-Medium" },
-  actionButtons: { position: "absolute", top: 5, right: 5, flexDirection: "row", zIndex: 10 },
-<<<<<<< HEAD
-  /* --- Updated Action Buttons --- */
-  iconButton: { padding: 4, borderRadius: 6, marginLeft: 3 },
-  deleteCommentButton: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    padding: 0, // minimal padding
-    // backgroundColor removed to avoid red square
-    zIndex: 11,
-  },
-  commentsContainer: { marginTop: 10 },
-  commentItem: { marginBottom: 10, borderBottomWidth: 1, borderBottomColor: "#eee", paddingBottom: 5, position: "relative" },
-  commentUser: { fontSize: 14, fontWeight: "bold", color: "#333" },
-  commentContent: {
-    fontSize: 14, // changed from 16 to 14
-    fontWeight: "bold",
-    color: "#333",
-    fontFamily: "AirbnbCereal-Medium",
-  },
-=======
-  iconButton: { padding: 6, borderRadius: 6, marginLeft: 5 },
-  deleteIconButton: { backgroundColor: "#FF4444" },
-  editIconButton: {},
-  deleteCommentButton: { position: "absolute", top: 0, right: 0, backgroundColor: "#FF4444", padding: 4, borderRadius: 4 },
-  commentsContainer: { marginTop: 10 },
-  commentItem: { marginBottom: 10, borderBottomWidth: 1, borderBottomColor: "#eee", paddingBottom: 5, position: "relative" },
-  commentUser: { fontSize: 14, fontWeight: "bold", color: "#333" },
-  commentContent: { fontSize: 12, color: "#333" },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-  commentDate: { fontSize: 10, color: "#666", marginTop: 2 },
-  viewCommentsText: { fontSize: 14, fontWeight: "bold" },
-  commentInputContainer: { flexDirection: "row", alignItems: "center", marginTop: 10 },
-  commentInput: { flex: 1, borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 10, height: 40, fontFamily: "AirbnbCereal-Medium", color: "#333" },
-  commentSubmitButton: { padding: 10, borderRadius: 8, marginLeft: 10 },
-  disabledButton: { backgroundColor: "#aaa" },
-  commentSubmitText: { fontFamily: "AirbnbCereal-Medium", color: "#fff", fontSize: 16 },
-<<<<<<< HEAD
-  filterOverlay: { 
+  filterOverlay: {
     flex: 1,
-    // Instead of a dark overlay with shadow, use a blue-tinted background or a BlurView wrapper.
     backgroundColor: "transparent",
-    // Optionally, if you wish to use a blur effect, you can remove backgroundColor and wrap filterContainer in a BlurView.
     justifyContent: "center",
     alignItems: "center",
   },
-=======
-  filterOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   filterContainer: { width: "90%", maxHeight: "80%", backgroundColor: "#fff", borderRadius: 10, padding: 20 },
   filterTitle: { fontSize: 18, fontFamily: "AirbnbCereal-Medium", marginBottom: 10, textAlign: "center", color: "#333" },
   filterRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginVertical: 8 },
   filterLabel: { fontSize: 16, fontFamily: "AirbnbCereal-Medium", color: "#333" },
-  filterInput: { borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 8, width: "50%", textAlign: "center" },
   filterOptions: { flexDirection: "row", justifyContent: "space-between", width: "60%" },
   filterOption: { fontSize: 14, color: "#333", paddingHorizontal: 5 },
   filterOptionActive: { fontWeight: "bold" },
@@ -2006,49 +1819,102 @@ const styles = StyleSheet.create({
   filterApplyButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
   filterCancelButton: { backgroundColor: "#FF4444", paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
   filterButtonText: { color: "#fff", fontFamily: "AirbnbCereal-Medium", fontSize: 16 },
-<<<<<<< HEAD
   filterText: { color: "#fff", fontFamily: "AirbnbCereal-Medium", fontSize: 16 },
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-  authorContainer: { flexDirection: "row", alignItems: "center" },
-  authorPic: { width: 30, height: 30, borderRadius: 15, marginRight: 10 },
-  authorName: { fontSize: 14, fontFamily: "AirbnbCereal-Medium", color: "#333" },
-  likeButton: { flexDirection: "row", alignItems: "center", marginTop: 10 },
-  likeCount: { marginLeft: 5, fontSize: 14, color: "#333" },
-<<<<<<< HEAD
-  searchPopup: { 
-    position: "absolute", 
-    top: 100, // Adjust this value so it sits right below your search container
-    left: 10, 
-    right: 10, 
-    backgroundColor: "#fff", 
-    borderRadius: 10, 
-    padding: 10, 
-    shadowColor: "#000", 
-    shadowOffset: { width: 0, height: 2 }, 
-    shadowOpacity: 0.2, 
-    shadowRadius: 4, 
-    elevation: 5, 
-    zIndex: 200, 
-    maxHeight: 300, // Limit the height, making it scrollable if needed
+  feedAuthorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 55,
+    marginTop: -5,
+    marginBottom: 0,
+    zIndex: 1,
   },
-=======
-  searchPopup: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 10, zIndex: 100 },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+  feedAuthorPic: {
+    width: 50,
+    height: 50,
+    borderRadius: 20,
+    marginRight: 5,
+  },
+  feedAuthorName: {
+    fontSize: 16,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333",
+  },
+  upcomingAuthorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 60,
+    marginTop: 0,
+    marginBottom: 5,
+    zIndex: 1,
+  },
+  upcomingAuthorPic: {
+    width: 50,
+    height: 50,
+    borderRadius: 20,
+    marginRight: 5,
+  },
+  upcomingAuthorName: {
+    fontSize: 16,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333",
+  },
+  bannerPhoto: {
+    width: "100%",
+    height: 120,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 0,
+  },
+  likeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 5,
+    position: "absolute",
+    bottom: 5,
+    right: 10,
+  },
+  likeCount: { marginLeft: 5, fontSize: 14, color: "#333" },
+  searchPopup: {
+    position: "absolute",
+    top: 100,
+    left: 10,
+    right: 10,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 200,
+    maxHeight: 300,
+  },
   searchPopupHeader: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 10 },
   searchPopupHandle: { width: 40, height: 5, backgroundColor: "#ccc", borderRadius: 2.5, position: "absolute", top: 5 },
   searchPopupTitle: { fontSize: 16, fontFamily: "AirbnbCereal-Medium", color: "#333" },
   searchResultItem: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#eee" },
   searchResultText: { fontSize: 14, fontFamily: "AirbnbCereal-Medium", color: "#333" },
   eventButtonContainer: { flexDirection: "row", justifyContent: "space-around", marginVertical: 10 },
-  eventButton: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, borderWidth: 1, borderColor: "#ddd" },
-  eventButtonActive: { backgroundColor: "#333" },
-  eventButtonText: { fontSize: 14, fontFamily: "AirbnbCereal-Medium", color: "#333" },
-  eventDateInput: { borderWidth: 1, borderColor: "#ddd", borderRadius: 10, padding: 10, marginBottom: 10 },
-<<<<<<< HEAD
+  eventButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    backgroundColor: "#fff", // Default background color
+  },
+  eventButtonActive: {
+    backgroundColor: "#333", // Default active background color
+  },
+  eventButtonText: {
+    fontSize: 14,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333", // Default text color
+  },
   fabBlueBackground: {
     position: "absolute",
-    bottom: 70, // lowered to sit above the raised nav bar
+    bottom: 70,
     alignSelf: "center",
     width: 56,
     height: 56,
@@ -2061,46 +1927,150 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 10,
   },
-  feedContainer: {
-    width: "100%",
-    alignItems: "center",
-    backgroundColor: "transparent",
-    overflow: "visible",
-  },
-  authorContainerCustom: {
-    position: "absolute",
-    top: 10,
-    left: 70,
-    flexDirection: "row",
-    alignItems: "center",
-  },
   feedContent: {
-    marginTop: 50, // Adjust as needed
+    marginTop: 10,
   },
   feedTitle: {
-    fontSize: 20,                     // bigger font size
-    fontWeight: "bold",               // bold
+    fontSize: 20,
+    fontWeight: "bold",
     color: "#333",
     fontFamily: "AirbnbCereal-Medium",
     marginBottom: 5,
   },
   feedText: {
-    fontSize: 16,                     // smaller than title
-    fontWeight: "bold",               // bold text for body
-    color: "#333",
+    fontSize: 14,
     fontFamily: "AirbnbCereal-Medium",
+    color: "#333",
   },
   feedTimeContent: {
-    fontSize: 12,                     // small font for time
-    fontWeight: "200",                // thin appearance
+    fontSize: 12,
+    fontWeight: "200",
     color: "#777",
-    fontFamily: "AirbnbCereal-Medium", // adjust if you have a light variant
-    marginVertical: 3,
+    fontFamily: "AirbnbCereal-Medium",
+    marginTop: 2,
+  },
+  pickerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  picker: {
+    flex: 1,
+    height: 150,
+  },
+  eventLabel: {
+    fontSize: 16,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333",
+    marginBottom: 5,
+  },
+  uploadButton: {
+    backgroundColor: "#668CFF",
+    padding: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  uploadButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "AirbnbCereal-Medium",
+  },
+  bannerPreview: {
+    width: "100%",
+    height: 150,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  postModalContent: {
+    paddingBottom: 20,
+  },
+  datePickerButton: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 8,
+    width: "50%",
+    textAlign: "center",
+    alignItems: "center",
+  },
+  datePickerText: {
+    fontSize: 14,
+    fontFamily: "AirbnbCereal-Medium",
+    color: "#333",
+  },
+  actionContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 20,
+  },
+  commentPostButton: {
+    backgroundColor: "#0A58CA",
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+  commentPostButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "AirbnbCereal-Medium",
+  },
+  commentInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  commentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 14,
+    fontFamily: "AirbnbCereal-Medium",
+  },
+  editButton: {
+    alignSelf: "flex-end",
+    backgroundColor: "#007AFF", // Default background color
+    padding: 5,
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  editButtonText: {
+    color: "#fff", // Default text color
+    fontSize: 14,
+    fontFamily: "AirbnbCereal-Medium",
+  },
+  pickerOverlay: {
+    position: "absolute",
+    top: -20, // Extend the overlay above the pickers
+    left: -20, // Extend the overlay to the left
+    right: -20, // Extend the overlay to the right
+    bottom: -20, // Extend the overlay below the pickers
+    backgroundColor: "transparent",
+    zIndex: 1,
+  },
+  spacingAbovePicker: {
+    marginBottom: 0,
+    marginTop: 50,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 5,
+    marginBottom: 20, // Space below each picker
+    paddingBottom: 20, // Add 10pt extra padding to lower the bottom of the border
+  },
+  map: {
+    width: "100%",
+    height: 200,
+    marginTop: 10,
+    borderRadius: 10,
   },
 });
 export default HomePage;
-=======
-});
-
-export default HomePage;
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b

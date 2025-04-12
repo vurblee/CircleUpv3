@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,42 +14,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../providers/ThemeContext";
-import { defaultTheme } from "../providers/theme";
-<<<<<<< HEAD
-import Header from "../components/header";  // <-- Import Header
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+import { defaultTheme, blackAndWhiteTheme } from "../providers/theme";
+import Header from "../components/header";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import apiClient from "../api/apiClient"; // Assuming you have an apiClient setup
 
 const createStyles = (theme) =>
   StyleSheet.create({
     container: {
       flex: 1,
-<<<<<<< HEAD
-      backgroundColor: theme.background,
+      backgroundColor: theme.mode === "blackAndWhite" ? "#fff" : theme.background, // White background in black-and-white mode
       padding: 20,
-      // Remove paddingTop if it conflicts with the imported Header
-    },
-    // Remove custom header styles if not needed:
-    headerText: {
-      fontSize: 24,
-      fontFamily: "AirbnbCereal-Medium",
-      color: "#333",
-=======
-      backgroundColor: theme.background, // White remains white
-      padding: 20,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: 30,
-    },
-    headerText: {
-      fontSize: 24,
-      fontFamily: "AirbnbCereal-Medium",
-      color: "#333", // Dark text stays dark
-      flex: 1,
-      textAlign: "center",
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     },
     optionRow: {
       flexDirection: "row",
@@ -60,37 +36,38 @@ const createStyles = (theme) =>
     optionLabel: {
       fontSize: 16,
       fontFamily: "AirbnbCereal-Medium",
-<<<<<<< HEAD
-      color: "#333",
-=======
-      color: "#333", // Dark text
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+      color: theme.mode === "blackAndWhite" ? "#000" : "#333", // Black text in black-and-white mode
     },
     button: {
       flexDirection: "row",
       alignItems: "center",
-<<<<<<< HEAD
-      backgroundColor: theme.primary,
-=======
-      backgroundColor: theme.primary, // Blue toggles here
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+      backgroundColor: theme.mode === "blackAndWhite" ? "#000" : theme.primary, // Black buttons in black-and-white mode
       paddingVertical: 12,
       paddingHorizontal: 15,
       borderRadius: 8,
       marginBottom: 15,
     },
     buttonText: {
-      color: "#fff",
+      color: theme.mode === "blackAndWhite" ? "#fff" : "#fff", // White text inside buttons in black-and-white mode
       fontSize: 16,
       fontFamily: "AirbnbCereal-Medium",
       marginLeft: 10,
     },
-<<<<<<< HEAD
-    optionsContainer: {
-      marginTop: 10, // Reduced from 50 to 30 to raise the content
+    deleteButton: {
+      backgroundColor: "#FF4444", // Red color for delete action remains unchanged
     },
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+    sliderTrack: {
+      false: theme.mode === "blackAndWhite" ? "#000" : "#767577", // Reverse slider track colors
+      true: theme.mode === "blackAndWhite" ? "#fff" : theme.primary,
+      borderWidth: 1, // Add black trim
+      borderColor: "#000", // Black border for the slider
+    },
+    sliderThumb: {
+      color: theme.mode === "blackAndWhite" ? "#000" : "#f4f3f4", // Reverse slider thumb colors
+    },
+    optionsContainer: {
+      marginTop: 10,
+    },
     modalContainer: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.5)",
@@ -109,7 +86,7 @@ const createStyles = (theme) =>
       fontFamily: "AirbnbCereal-Medium",
       marginBottom: 10,
       textAlign: "center",
-      color: "#333",
+      color: theme.mode === "blackAndWhite" ? "#000" : "#333", // Black text in black-and-white mode
     },
     input: {
       borderWidth: 1,
@@ -119,25 +96,16 @@ const createStyles = (theme) =>
       marginBottom: 15,
       fontSize: 16,
       fontFamily: "AirbnbCereal-Medium",
-      color: "#333",
-    },
-    modalButtons: {
-      flexDirection: "row",
-      justifyContent: "space-around",
-      marginTop: 10,
+      color: theme.mode === "blackAndWhite" ? "#000" : "#333", // Black text in black-and-white mode
     },
     modalButton: {
-<<<<<<< HEAD
-      backgroundColor: theme.primary,
-=======
-      backgroundColor: theme.primary, // Toggled color
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+      backgroundColor: theme.mode === "blackAndWhite" ? "#000" : theme.primary, // Black buttons in black-and-white mode
       paddingVertical: 10,
       paddingHorizontal: 20,
       borderRadius: 8,
     },
     modalButtonText: {
-      color: "#fff",
+      color: theme.mode === "blackAndWhite" ? "#fff" : "#fff", // White text inside buttons in black-and-white mode
       fontSize: 16,
       fontFamily: "AirbnbCereal-Medium",
     },
@@ -151,32 +119,37 @@ const createStyles = (theme) =>
 
 const Settings = () => {
   const navigation = useNavigation();
-<<<<<<< HEAD
-  const { theme, toggleTheme } =
-    useTheme() || { theme: defaultTheme, toggleTheme: () => {} };
-=======
-
-  // Destructure theme and toggleTheme from the context. Fallback if needed.
-  const { theme, toggleTheme } = useTheme() || { theme: defaultTheme, toggleTheme: () => {} };
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+  const { theme, toggleTheme, setAppTheme } =
+    useTheme() || { theme: defaultTheme, toggleTheme: () => {}, setAppTheme: () => {} };
   const styles = createStyles(theme);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [isChangePasswordVisible, setIsChangePasswordVisible] = useState(false);
-<<<<<<< HEAD
-=======
-
-  // Change Password State
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loadingChange, setLoadingChange] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState(null);
 
-<<<<<<< HEAD
-=======
-  // Toggle for notifications
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const storedUserId = await AsyncStorage.getItem("userId");
+        setUserId(storedUserId);
+
+        // Fetch current user data to get is_private status
+        const response = await apiClient.get(`/users/${storedUserId}`);
+        setIsPrivate(response.data.is_private || false);
+      } catch (error) {
+        console.error("Error loading user data:", error);
+        Alert.alert("Error", "Failed to load user data.");
+      }
+    };
+    loadUserData();
+  }, []);
+
   const toggleNotifications = () => {
     setNotificationsEnabled((prev) => !prev);
     Alert.alert(
@@ -185,7 +158,91 @@ const Settings = () => {
     );
   };
 
-<<<<<<< HEAD
+  const toggleProfileVisibility = async () => {
+    try {
+      setLoading(true);
+      const newValue = !isPrivate;
+      await apiClient.put(`/users/${userId}/toggle-visibility`, {
+        is_private: newValue,
+      });
+      setIsPrivate(newValue);
+      Alert.alert(
+        "Success",
+        `Profile is now ${newValue ? "private" : "public"}.`
+      );
+    } catch (error) {
+      console.error("Error toggling profile visibility:", error);
+      Alert.alert(
+        "Error",
+        error.response?.data?.error || "Failed to update profile visibility."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadProfileData = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get(`/users/${userId}/download-data`, {
+        responseType: "json",
+      });
+
+      // Save the JSON data to a file
+      const fileUri = `${FileSystem.documentDirectory}user_data_${userId}.json`;
+      await FileSystem.writeAsStringAsync(
+        fileUri,
+        JSON.stringify(response.data, null, 2)
+      );
+
+      // Share the file
+      await Sharing.shareAsync(fileUri, {
+        mimeType: "application/json",
+        dialogTitle: "Download your profile data",
+        UTI: "public.json",
+      });
+    } catch (error) {
+      console.error("Error downloading profile data:", error);
+      Alert.alert(
+        "Error",
+        error.response?.data?.error || "Failed to download profile data."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteProfile = async () => {
+    Alert.alert(
+      "Delete Profile",
+      "Are you sure you want to delete your profile? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await apiClient.delete(`/users/${userId}`);
+              await AsyncStorage.clear();
+              Alert.alert("Success", "Your profile has been deleted.");
+              navigation.navigate("SignIn");
+            } catch (error) {
+              console.error("Error deleting profile:", error);
+              Alert.alert(
+                "Error",
+                error.response?.data?.error || "Failed to delete profile."
+              );
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSignOut = async () => {
     try {
       await AsyncStorage.removeItem("userToken");
@@ -197,9 +254,6 @@ const Settings = () => {
     }
   };
 
-=======
-  // Submit Change Password
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       Alert.alert("Error", "Please fill out all fields.");
@@ -212,57 +266,73 @@ const Settings = () => {
     setLoadingChange(true);
     try {
       const token = await AsyncStorage.getItem("userToken");
-<<<<<<< HEAD
       if (!token) {
         throw new Error("No authentication token found.");
       }
-      const response = await fetch("http://192.168.1.231:5000/api/auth/change-password", {
-=======
-      const response = await fetch("http://10.0.2.2:5000/api/auth/change-password", {
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
+      const response = await fetch(
+        "http://192.168.1.231:5000/api/auth/change-password",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ currentPassword, newPassword }),
+        }
+      );
       const data = await response.json();
       setLoadingChange(false);
       if (response.ok) {
-        Alert.alert("Success", data.message || "Password changed successfully!");
+        Alert.alert(
+          "Success",
+          data.message || "Password changed successfully!"
+        );
         setIsChangePasswordVisible(false);
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
       } else {
-        Alert.alert("Error", data.error || data.message || "Failed to change password.");
+        Alert.alert(
+          "Error",
+          data.error || data.message || "Failed to change password."
+        );
       }
     } catch (error) {
       console.error("Change Password Error:", error);
       setLoadingChange(false);
-<<<<<<< HEAD
-      Alert.alert("Error", error.message || "An error occurred. Please try again.");
-=======
-      Alert.alert("Error", "An error occurred. Please try again.");
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+      Alert.alert(
+        "Error",
+        error.message || "An error occurred. Please try again."
+      );
+    }
+  };
+
+  // Updated function to handle switching to/from Black & White theme.
+  const toggleBlackAndWhiteTheme = async (value) => {
+    try {
+      if (value) {
+        await setAppTheme(blackAndWhiteTheme);
+      } else {
+        await setAppTheme(defaultTheme);
+      }
+    } catch (error) {
+      console.error("Error switching theme:", error);
+      Alert.alert("Error", "Failed to switch theme.");
     }
   };
 
   return (
     <View style={styles.container}>
-<<<<<<< HEAD
-      {/* Replace custom header with Header component */}
       <Header
         title="Settings"
         onBackPress={() => navigation.goBack()}
-        leftButtonStyle={{ marginLeft: -20 }}      // Existing adjustment for left button container
-        titleStyle={{ marginLeft: -10, marginTop: -10 }} // Your title style
-        arrowStyle={{ transform: [{ translateY: -9 }] }} // Move only the arrow down by 10pt
+        leftButtonStyle={{ marginLeft: -20 }}
+        titleStyle={{ marginLeft: -10, marginTop: -10 }}
+        arrowStyle={{ transform: [{ translateY: -9 }] }}
       />
 
       <View style={styles.optionsContainer}>
-        {/* Theme Toggle Option */}
+        {/* Theme Toggle Option (Original vs Lighter) */}
         <View style={styles.optionRow}>
           <Text style={styles.optionLabel}>
             Theme: {theme.mode === "lighter" ? "Lighter Blue" : "Original"}
@@ -270,8 +340,24 @@ const Settings = () => {
           <Switch
             value={theme.mode === "lighter"}
             onValueChange={toggleTheme}
-            trackColor={{ false: "#767577", true: theme.primary }}
-            thumbColor="#f4f3f4"
+            trackColor={styles.sliderTrack}
+            thumbColor={styles.sliderThumb.color}
+          />
+        </View>
+
+        {/* New Black & White Theme Option */}
+        <View style={styles.optionRow}>
+          <Text style={styles.optionLabel}>
+            {theme.mode === "blackAndWhite"
+              ? "Black & White Theme Enabled"
+              : "Enable Black & White Theme"}
+          </Text>
+          <Switch
+            value={theme.mode === "blackAndWhite"}
+            onValueChange={toggleBlackAndWhiteTheme}
+            trackColor={styles.sliderTrack}
+            thumbColor={styles.sliderThumb.color}
+            disabled={loading}
           />
         </View>
 
@@ -281,15 +367,31 @@ const Settings = () => {
           <Switch
             value={notificationsEnabled}
             onValueChange={toggleNotifications}
-            trackColor={{ false: "#767577", true: theme.primary }}
-            thumbColor="#f4f3f4"
+            trackColor={styles.sliderTrack}
+            thumbColor={styles.sliderThumb.color}
+            disabled={loading}
+          />
+        </View>
+
+        {/* Profile Visibility Toggle */}
+        <View style={styles.optionRow}>
+          <Text style={styles.optionLabel}>
+            Hide Profile from Non-Friends
+          </Text>
+          <Switch
+            value={isPrivate}
+            onValueChange={toggleProfileVisibility}
+            trackColor={styles.sliderTrack}
+            thumbColor={styles.sliderThumb.color}
+            disabled={loading}
           />
         </View>
 
         {/* Edit Profile */}
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, loading && { backgroundColor: "#ccc" }]}
           onPress={() => navigation.navigate("Profile")}
+          disabled={loading}
         >
           <Ionicons name="person-outline" size={20} color="#fff" />
           <Text style={styles.buttonText}>Edit Profile</Text>
@@ -297,100 +399,72 @@ const Settings = () => {
 
         {/* Change Password */}
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, loading && { backgroundColor: "#ccc" }]}
           onPress={() => setIsChangePasswordVisible(true)}
+          disabled={loading}
         >
           <Ionicons name="key-outline" size={20} color="#fff" />
           <Text style={styles.buttonText}>Change Password</Text>
         </TouchableOpacity>
 
+        {/* Download Profile Data */}
+        <TouchableOpacity
+          style={[styles.button, loading && { backgroundColor: "#ccc" }]}
+          onPress={downloadProfileData}
+          disabled={loading}
+        >
+          <Ionicons name="download-outline" size={20} color="#fff" />
+          <Text style={styles.buttonText}>Download My Data</Text>
+        </TouchableOpacity>
+
         {/* Support & FAQ */}
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, loading && { backgroundColor: "#ccc" }]}
           onPress={() => navigation.navigate("SupportFAQ")}
+          disabled={loading}
         >
           <Ionicons name="help-circle-outline" size={20} color="#fff" />
           <Text style={styles.buttonText}>Support & FAQ</Text>
         </TouchableOpacity>
 
+        {/* Delete Profile */}
+        <TouchableOpacity
+          style={[
+            styles.button,
+            styles.deleteButton,
+            loading && { backgroundColor: "#ccc" },
+          ]}
+          onPress={deleteProfile}
+          disabled={loading}
+        >
+          <Ionicons name="trash-outline" size={20} color="#fff" />
+          <Text style={styles.buttonText}>Delete My Profile</Text>
+        </TouchableOpacity>
+
         {/* Sign Out */}
-        <TouchableOpacity style={styles.button} onPress={handleSignOut}>
+        <TouchableOpacity
+          style={[styles.button, loading && { backgroundColor: "#ccc" }]}
+          onPress={handleSignOut}
+          disabled={loading}
+        >
           <Ionicons name="log-out-outline" size={20} color="#fff" />
           <Text style={styles.buttonText}>Sign Out</Text>
         </TouchableOpacity>
+
+        {loading && (
+          <ActivityIndicator
+            size="small"
+            color={theme.primary}
+            style={{ marginTop: 10 }}
+          />
+        )}
       </View>
 
-=======
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerText}>Settings</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      {/* Theme Toggle Option */}
-      <View style={styles.optionRow}>
-        <Text style={styles.optionLabel}>
-          Theme: {theme.mode === "lighter" ? "Lighter Blue" : "Original"}
-        </Text>
-        <Switch
-          value={theme.mode === "lighter"}
-          onValueChange={toggleTheme}
-          trackColor={{ false: "#767577", true: theme.primary }}
-          thumbColor="#f4f3f4"
-        />
-      </View>
-
-      {/* Notification Toggle */}
-      <View style={styles.optionRow}>
-        <Text style={styles.optionLabel}>Enable Notifications</Text>
-        <Switch
-          value={notificationsEnabled}
-          onValueChange={toggleNotifications}
-          trackColor={{ false: "#767577", true: theme.primary }}
-          thumbColor="#f4f3f4"
-        />
-      </View>
-
-      {/* Edit Profile */}
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate("Profile")}>
-        <Ionicons name="person-outline" size={20} color="#fff" />
-        <Text style={styles.buttonText}>Edit Profile</Text>
-      </TouchableOpacity>
-
-      {/* Change Password */}
-      <TouchableOpacity style={styles.button} onPress={() => setIsChangePasswordVisible(true)}>
-        <Ionicons name="key-outline" size={20} color="#fff" />
-        <Text style={styles.buttonText}>Change Password</Text>
-      </TouchableOpacity>
-
-      {/* Support & FAQ */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => Alert.alert("Coming Soon", "Support & FAQ is coming soon!")}
-      >
-        <Ionicons name="help-circle-outline" size={20} color="#fff" />
-        <Text style={styles.buttonText}>Support & FAQ</Text>
-      </TouchableOpacity>
-
-      {/* Sign Out */}
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate("SignIn")}>
-        <Ionicons name="log-out-outline" size={20} color="#fff" />
-        <Text style={styles.buttonText}>Sign Out</Text>
-      </TouchableOpacity>
-
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       {/* Change Password Modal */}
       <Modal visible={isChangePasswordVisible} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalHeader}>Change Password</Text>
-<<<<<<< HEAD
-=======
-
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
             <TextInput
               style={styles.input}
               placeholder="Current Password"
@@ -415,15 +489,10 @@ const Settings = () => {
               onChangeText={setConfirmPassword}
               placeholderTextColor="#aaa"
             />
-<<<<<<< HEAD
-=======
-
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
             {loadingChange ? (
               <ActivityIndicator size="small" color={theme.primary} />
             ) : (
               <View style={styles.modalButtons}>
-<<<<<<< HEAD
                 <TouchableOpacity
                   style={styles.modalButton}
                   onPress={handleChangePassword}
@@ -432,13 +501,6 @@ const Settings = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.cancelButton}
-=======
-                <TouchableOpacity style={styles.modalButton} onPress={handleChangePassword}>
-                  <Text style={styles.modalButtonText}>Submit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: "#FF4444" }]}
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
                   onPress={() => setIsChangePasswordVisible(false)}
                 >
                   <Text style={styles.modalButtonText}>Cancel</Text>
@@ -452,8 +514,4 @@ const Settings = () => {
   );
 };
 
-<<<<<<< HEAD
 export default Settings;
-=======
-export default Settings;
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b

@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "build": {
     "development": {
       "developmentClient": true,
@@ -10,16 +9,6 @@
       "ios": {
         "simulator": true
       }
-=======
-  "cli": {
-    "version": ">= 15.0.12",
-    "appVersionSource": "remote"
-  },
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     },
     "preview": {
       "distribution": "internal"
@@ -27,11 +16,5 @@
     "production": {
       "autoIncrement": true
     }
-<<<<<<< HEAD
-=======
-  },
-  "submit": {
-    "production": {}
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   }
 }

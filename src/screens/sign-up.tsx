@@ -10,25 +10,18 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import * as Font from "expo-font";
-<<<<<<< HEAD
-import Constants from "expo-constants";
-
-const API_BASE_URL = Constants.expoConfig.extra.API_BASE_URL;
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+import apiClient from "../api/apiClient";
 
 const SignUp = () => {
   const navigation = useNavigation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [username, setUsername] = useState(""); // New state for username
+  const [name, setName] = useState(""); // New state for name
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
 
-<<<<<<< HEAD
-=======
-  // Load Airbnb font
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   const loadFonts = async () => {
     await Font.loadAsync({
       AirbnbCereal_Md: require("../../assets/fonts/AirbnbCereal_W_Md.otf"),
@@ -55,36 +48,28 @@ const SignUp = () => {
     }
     setLoading(true);
     try {
-<<<<<<< HEAD
-      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: email.split("@")[0],
-=======
-      const response = await fetch("http://10.0.2.2:5000/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: email.split("@")[0], // Using email prefix as a default name
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-          email,
-          password,
-          role: "user",
-        }),
+      const response = await apiClient.post("/auth/signup", {
+        username, // Include username
+        name, // Include name
+        email,
+        password,
+        role: "user",
       });
-      const data = await response.json();
       setLoading(false);
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         alert("Signup successful!");
         navigation.navigate("SignIn");
       } else {
-        alert(data.message || data.error || "Signup failed");
+        alert(response.data.message || response.data.error || "Signup failed");
       }
-    } catch (error) {
-      console.error("Signup error:", error);
+    } catch (error: any) {
+      console.error("Signup error:", error.response?.data || error.message);
       setLoading(false);
-      alert("An error occurred. Please try again.");
+      alert(
+        error.response?.data.message ||
+          error.response?.data.error ||
+          "An error occurred. Please try again."
+      );
     }
   };
 
@@ -94,6 +79,20 @@ const SignUp = () => {
       <Text style={styles.title}>Create an Account</Text>
       <Text style={styles.subtitle}>Sign up to get started</Text>
 
+      <TextInput
+        style={styles.input}
+        placeholder="Username"
+        placeholderTextColor="#aaa"
+        value={username}
+        onChangeText={setUsername}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Name"
+        placeholderTextColor="#aaa"
+        value={name}
+        onChangeText={setName}
+      />
       <TextInput
         style={styles.input}
         placeholder="Email"

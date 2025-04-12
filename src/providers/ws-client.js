@@ -1,12 +1,9 @@
-const { io } = require("socket.io-client");
-const AsyncStorage = require("@react-native-async-storage/async-storage").default;
-<<<<<<< HEAD
-const Constants = require("expo-constants");
+import { io } from "socket.io-client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SOCKET_SERVER_URL } from "../utils/apiConfig"; // Make sure this returns your WebSocket URL (e.g., "ws://192.168.0.43:5000")
+import { decode as atob } from "base-64";
 
 // Function to decode JWT token
-=======
-
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
 const decodeJwt = (token) => {
   try {
     const base64Url = token.split(".")[1];
@@ -23,31 +20,9 @@ const decodeJwt = (token) => {
   }
 };
 
-<<<<<<< HEAD
-// Safely check for expoConfig and extra
-const getSocketServerUrl = () => {
-  if (
-    Constants?.expoConfig?.extra &&
-    Constants.expoConfig.extra.SOCKET_SERVER_URL
-  ) {
-    return Constants.expoConfig.extra.SOCKET_SERVER_URL;
-  } else {
-    console.warn(
-      "expoConfig.extra is undefined, using fallback URL http://192.168.1.231:5000"
-    );
-    return "http://192.168.1.231:5000"; // fallback
-  }
-};
-
-const SOCKET_SERVER_URL = getSocketServerUrl();
-=======
-// Updated to port 5000 for Android emulator
-const SOCKET_SERVER_URL = "http://10.0.2.2:5000";
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-
 let socket = null;
 
-const initializeSocket = async () => {
+export const initializeSocket = async () => {
   try {
     const token = await AsyncStorage.getItem("userToken");
     if (!token) {
@@ -102,9 +77,9 @@ const initializeSocket = async () => {
   }
 };
 
-const getSocket = () => socket;
+export const getSocket = () => socket;
 
-const setOffline = async () => {
+export const setOffline = async () => {
   try {
     const token = await AsyncStorage.getItem("userToken");
     if (!token || !socket) return;
@@ -118,7 +93,7 @@ const setOffline = async () => {
   }
 };
 
-const disconnectSocket = () => {
+export const disconnectSocket = () => {
   if (socket && typeof socket.disconnect === "function") {
     socket.disconnect();
     socket = null;
@@ -135,4 +110,4 @@ const socketClient = {
   disconnect: disconnectSocket,
 };
 
-module.exports = socketClient;
+export default socketClient;

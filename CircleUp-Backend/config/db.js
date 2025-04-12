@@ -8,6 +8,7 @@ const pool = new Pool({
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
+  max: 20, // Increase the maximum number of connections to 20
   ssl: { rejectUnauthorized: false } // For AWS RDS; adjust as needed.
 });
 

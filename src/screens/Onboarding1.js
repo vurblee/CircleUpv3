@@ -44,7 +44,7 @@ const Onboarding1 = () => {
         duration: 800,
         useNativeDriver: true,
       }).start(() => {
-        navigation.replace("Onboarding2"); // Navigate after fade-out
+        navigation.replace("SignIn"); // Navigate directly to SignIn
       });
     }, 3000);
   }, []);
@@ -63,15 +63,11 @@ const Onboarding1 = () => {
         source={require("../../assets/circleupmainlogo.png")}
         style={[
           styles.logo,
-<<<<<<< HEAD
           {
             marginLeft: 2.5, // Shift logo to same horizontal spot as SplashScreen
             transform: [{ translateY: logoSlideAnim }],
             opacity: logoFadeAnim,
           },
-=======
-          { transform: [{ translateY: logoSlideAnim }], opacity: logoFadeAnim },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
         ]}
       />
     </Animated.View>
@@ -90,10 +86,7 @@ const styles = StyleSheet.create({
     height: "45%", // Keeps phone aligned
     resizeMode: "contain",
     marginBottom: 40, // Increased spacing for bigger logo
-<<<<<<< HEAD
     // marginLeft removed to center the image
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   },
   logo: {
     width: 840, // 🔥 Much larger

@@ -4,6 +4,7 @@ const authenticateUser = require("../middleware/authMiddleware");
 
 module.exports = (io) => {
   const router = express.Router();
+  const notificationRoutes = require("./notifications")(io); // Import notifications routes
 
   /**
    * GET /api/messages/conversations
@@ -116,13 +117,12 @@ module.exports = (io) => {
         [conversation_id, sender_id]
       );
 
+      // Emit the message to the receiver
       io.to(receiver_id).emit("newMessage", rows[0]);
-      await pool.query(
-        `INSERT INTO notifications (user_id, reference_id, type, is_read, created_at)
-         VALUES ($1, $2, 'message', false, NOW())`,
-        [receiver_id, rows[0].id]
-      );
-      io.to(receiver_id).emit("newNotification", { type: "message", data: rows[0] });
+
+      // Send a notification to the receiver with the sender_id
+      await notificationRoutes.sendNotification(receiver_id, conversation_id, "message", sender_id);
+
       return res.status(201).json({ message: "Message sent successfully", data: rows[0] });
     } catch (error) {
       console.error("Error sending message:", error);

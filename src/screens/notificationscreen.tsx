@@ -7,20 +7,14 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-<<<<<<< HEAD
-  Platform,
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeSocket, getSocket } from "../providers/ws-client";
-<<<<<<< HEAD
-import Header from "../components/header";  // <-- Import the shared Header
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+import { useNotification } from "../contexts/NotificationContext";
+import Header from "../components/header";
+import apiClient from "../api/apiClient";
 
 interface Notification {
   id: string;
@@ -28,12 +22,20 @@ interface Notification {
   type: string;
   is_read: boolean;
   created_at: string;
+  sender_id?: string;
+  sender_username?: string;
+  message?: string; // Added message property
 }
 
 const NotificationsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const { showNotification } = useNotification();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [newNotif, setNewNotif] = useState<Notification | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState<boolean>(false);
+  const [selectedNotifs, setSelectedNotifs] = useState<Set<string>>(new Set());
 
   const decodeJwt = (token: string): { userId?: string; id?: string } => {
     try {
@@ -47,217 +49,262 @@ const NotificationsScreen: React.FC = () => {
       );
       return JSON.parse(jsonPayload);
     } catch (e) {
-<<<<<<< HEAD
       console.error("Failed to decode token:", (e as Error).message);
       return {};
-=======
-      throw new Error("Failed to decode token: " + (e as Error).message);
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
     }
   };
 
   const fetchNotifications = async (): Promise<void> => {
     setLoading(true);
+    setError(null);
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
-<<<<<<< HEAD
+        console.log("No token found, navigating to SignIn");
         navigation.navigate("SignIn");
-        setLoading(false);
         return;
       }
-      const response = await axios.get<Notification[]>(
-        "http://192.168.1.231:5000/api/notifications",
-=======
-        Alert.alert("Error", "No valid token found. Please sign in again.");
-        return;
-      }
-      console.log("Token found:", token);
-      console.log("Sending GET request to /api/notifications");
-      // Updated URL: using HTTP protocol and port 5000 for Android emulator
-      const response = await axios.get<Notification[]>(
-        "http://10.0.2.2:5000/api/notifications",
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 5000,
-        }
-      );
-<<<<<<< HEAD
+      console.log("Fetching notifications with token:", token);
+      const response = await apiClient.get<Notification[]>("/notifications", {
+        timeout: 10000,
+      });
+      console.log("Fetched notifications:", response.data);
+      // Log sender_username for each notification to debug
+      response.data.forEach((notif: Notification) => {
+        console.log(`Notification ID: ${notif.id}, Sender Username: ${notif.sender_username}, Sender ID: ${notif.sender_id}`);
+      });
       setNotifications(response.data || []);
     } catch (error: any) {
       console.error("Error fetching notifications:", error.response?.data || error.message);
-      Alert.alert("Error", "Network issue or server down. Showing empty list.");
+      setError(
+        error.response?.data?.error || "Failed to load notifications. Please try again."
+      );
       setNotifications([]);
     } finally {
-=======
-      console.log("Response status:", response.status);
-      console.log("Fetched notifications:", response.data);
-      setNotifications(response.data || []);
-    } catch (error: any) {
-      console.error("Error fetching notifications:", error.message);
-      if (error.response) {
-        console.error("Server responded with:", error.response.data);
-        console.error("Status code:", error.response.status);
-      } else if (error.request) {
-        console.error("No response received. Check if server is running at http://10.0.2.2:5000.");
-      } else {
-        console.error("Request setup error:", error.message);
-      }
-      Alert.alert("Error", "Network issue or server down. Showing empty list.");
-      setNotifications([]);
-    } finally {
-      console.log("Setting loading to false in fetchNotifications");
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       setLoading(false);
     }
   };
 
-  const handlePressNotification = async (notification: Notification): Promise<void> => {
+  const markAllAsRead = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-<<<<<<< HEAD
-        navigation.navigate("SignIn");
-        return;
-      }
-      await axios.put(
-        `http://192.168.1.231:5000/api/notifications/${notification.id}/read`,
-=======
-        Alert.alert("Error", "No valid token found.");
-        return;
-      }
-      // Updated URL to HTTP endpoint on port 5000
-      await axios.put(
-        `http://10.0.2.2:5000/api/notifications/${notification.id}/read`,
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === notification.id ? { ...n, is_read: true } : n
-        )
-      );
+      await apiClient.put("/notifications/mark-all-read", {});
+      setNotifications((prev) => prev.map((notif) => ({ ...notif, is_read: true })));
     } catch (error: any) {
-<<<<<<< HEAD
-      console.error("Error marking notification as read:", error.response?.data || error.message);
-    }
-
-    if (notification.type === "message") {
-      navigation.navigate("Chat", { conversationId: notification.reference_id });
-=======
-      console.error("Error marking notification as read:", error);
-    }
-
-    if (notification.type === "message") {
-      navigation.navigate("ChatScreen", { conversationId: notification.reference_id });
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-    } else if (notification.type === "post") {
-      navigation.navigate("PostScreen", { postId: notification.reference_id });
-    } else if (notification.type === "event" || notification.type === "rsvp_request") {
-      navigation.navigate("EventDetails", { eventId: notification.reference_id });
-    } else {
-      Alert.alert("Notification", "No action defined for this notification.");
+      console.error("Error marking all notifications as read:", error.response?.data || error.message);
+      Alert.alert("Error", "Failed to mark all notifications as read. Please try again.");
     }
   };
 
-  const renderNotification = ({ item }: { item: Notification }) => (
-    <TouchableOpacity
-<<<<<<< HEAD
-      style={[styles.notificationContainer, item.is_read && styles.readNotification]}
-      onPress={() => handlePressNotification(item)}
-    >
-      <View style={styles.iconContainer}>
-        <Ionicons
-          name="notifications"
-          size={30}
-          color={item.is_read ? "#888" : "#668CFF"}
-        />
-=======
-      style={styles.notificationContainer}
-      onPress={() => handlePressNotification(item)}
-    >
-      <View style={styles.iconContainer}>
-        <Ionicons name="notifications" size={30} color="#668CFF" />
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+  const handlePressNotification = async (notification: Notification): Promise<void> => {
+    if (editMode) {
+      const newSelected = new Set(selectedNotifs);
+      if (newSelected.has(notification.id)) {
+        newSelected.delete(notification.id);
+      } else {
+        newSelected.add(notification.id);
+      }
+      setSelectedNotifs(newSelected);
+      return;
+    }
+
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        navigation.navigate("SignIn");
+        return;
+      }
+      if (!notification.is_read) {
+        await apiClient.put(`/notifications/${notification.id}/read`, {});
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === notification.id ? { ...n, is_read: true } : n
+          )
+        );
+      }
+    } catch (error: any) {
+      console.error("Error marking notification as read:", error.response?.data || error.message);
+      Alert.alert("Error", "Failed to mark notification as read. Please try again.");
+    }
+
+    // Navigation logic based on notification type
+    switch (notification.type) {
+      case "message":
+      case "conversation":
+        if (!notification.sender_id) {
+          console.error("No sender_id found in notification:", notification);
+          Alert.alert("Error", "Cannot open chat: Sender information is missing.");
+          return;
+        }
+        navigation.navigate("ChatScreen", {
+          conversationId: notification.reference_id,
+          partnerId: notification.sender_id,
+          partnerName: notification.sender_username,
+        });
+        break;
+      case "post":
+      case "comment": // Navigate to PostScreen for comments
+      case "like":   // Navigate to PostScreen for likes
+        navigation.navigate("PostScreen", { postId: notification.reference_id });
+        break;
+      case "event":
+      case "event_reminder":
+      case "rsvp_request":
+      case "rsvp_accepted": // Navigate to EventDetails for RSVP status updates
+      case "rsvp_denied":   // Navigate to EventDetails for RSVP status updates
+        navigation.navigate("EventDetails", { eventId: notification.reference_id });
+        break;
+      case "friend_request":
+      case "friend_accepted":
+        if (notification.sender_id) {
+          navigation.navigate("UserProfile", { userId: notification.sender_id });
+        } else {
+          Alert.alert("Notification", "Sender information not available.");
+        }
+        break;
+      default:
+        Alert.alert("Notification", "No action defined for this notification type.");
+    }
+  };
+
+  const handleDeleteNotifications = async () => {
+    Alert.alert(
+      "Delete Notifications",
+      "Are you sure you want to delete the selected notifications?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              for (const notifId of selectedNotifs) {
+                await apiClient.delete(`/notifications/${notifId}`);
+              }
+              setNotifications((prev) =>
+                prev.filter((notif) => !selectedNotifs.has(notif.id))
+              );
+              setSelectedNotifs(new Set());
+              setEditMode(false);
+            } catch (error: any) {
+              console.error("Error deleting notifications:", error.response?.data || error.message);
+              Alert.alert("Error", "Failed to delete notifications. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const getNotificationMessage = (notification: Notification): string => {
+    switch (notification.type) {
+      case "message":
+      case "conversation":
+        return `${notification.sender_username || "Someone"} sent you a message`;
+      case "post":
+        return `${notification.sender_username || "Someone"} created a new post`;
+      case "event":
+        return `${notification.sender_username || "Someone"} created a new event`;
+      case "event_reminder":
+        return `Reminder: An event you RSVP'd to is starting soon`;
+      case "friend_request":
+        return `${notification.sender_username || "Someone"} sent you a friend request`;
+      case "friend_accepted":
+        return `${notification.sender_username || "Someone"} accepted your friend request`;
+      case "rsvp_request":
+        return `${notification.sender_username || "Someone"} requested to RSVP to your event`;
+      // New notification types
+      case "comment":
+        return `${notification.sender_username || "Someone"} commented on your post`;
+      case "like":
+        return `${notification.sender_username || "Someone"} liked your post`;
+      case "rsvp_accepted":
+        return `${notification.sender_username || "The organizer"} accepted your RSVP request`;
+      case "rsvp_denied":
+        return `${notification.sender_username || "The organizer"} denied your RSVP request`;
+      default:
+        return "You have a new notification";
+    }
+  };
+
+  const renderNotification = ({ item }: { item: Notification }) => {
+    const isSelected = selectedNotifs.has(item.id);
+    return (
+      <TouchableOpacity
+        style={[styles.notificationContainer, item.is_read && styles.readNotification]}
+        onPress={() => handlePressNotification(item)}
+        onLongPress={() => {
+          if (!editMode) {
+            setEditMode(true);
+            setSelectedNotifs(new Set([item.id]));
+          }
+        }}
+      >
+        {editMode && <Text style={styles.checkbox}>{isSelected ? "[✓]" : "[ ]"}</Text>}
+        <View style={styles.iconContainer}>
+          <Ionicons
+            name="notifications"
+            size={30}
+            color={item.is_read ? "#888" : "#668CFF"}
+          />
+        </View>
+        <View style={styles.notificationContent}>
+          <Text style={styles.notificationTitle}>{getNotificationMessage(item)}</Text>
+          <Text style={styles.notificationTime}>
+            {new Date(item.created_at).toLocaleString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              month: "short",
+              day: "numeric",
+            })}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderNewNotificationBanner = () => {
+    if (!newNotif) return null;
+    return (
+      <View style={styles.banner}>
+        <Text style={styles.bannerText}>{getNotificationMessage(newNotif)}</Text>
       </View>
-      <View style={styles.notificationContent}>
-        <Text style={styles.notificationTitle}>{item.type}</Text>
-        <Text style={styles.notificationPreview} numberOfLines={1}>
-          {item.reference_id}
-        </Text>
-      </View>
-      <Text style={styles.notificationTime}>
-<<<<<<< HEAD
-        {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-=======
-        {new Date(item.created_at).toLocaleTimeString()}
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
-      </Text>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   useEffect(() => {
     const setupSocket = async (): Promise<void> => {
       try {
-<<<<<<< HEAD
-        await fetchNotifications();
-
         let socket = getSocket();
         if (!socket) {
-=======
-        console.log("Starting fetchNotifications");
-        await fetchNotifications();
-        console.log("fetchNotifications completed");
-
-        let socket = getSocket();
-        if (!socket) {
-          console.log("Initializing socket");
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
           socket = await initializeSocket();
-          if (!socket) {
-            console.warn("Socket initialization failed");
-            return;
-          }
-<<<<<<< HEAD
-=======
-          console.log("Socket initialized in NotificationsScreen");
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+          if (!socket) throw new Error("Socket initialization failed");
         }
 
         const token = await AsyncStorage.getItem("userToken");
         if (token) {
           const decoded = decodeJwt(token);
-          const userId = decoded.userId || decoded.id;
+          const userId = decoded.id || decoded.userId;
           if (userId) {
             socket.emit("join", userId);
             console.log("Joined room with userId:", userId);
+            await fetchNotifications();
           }
         }
 
         socket.on("newNotification", (notification: Notification) => {
           console.log("New notification received via socket:", notification);
           setNotifications((prev) => [notification, ...prev]);
+          showNotification(notification.message || getNotificationMessage(notification));
+          showNotification(notification.message || "You have a new notification");
+          setTimeout(() => setNewNotif(null), 3000);
         });
 
-<<<<<<< HEAD
         socket.on("connect", () => console.log("🟢 Notifications socket connected"));
         socket.on("disconnect", (reason: string) => console.log("❌ Notifications socket disconnected:", reason));
         socket.on("connect_error", (error: Error) => console.error("⚠️ Notifications socket connect error:", error));
-=======
-        socket.on("connect", () => {
-          console.log("🟢 Notifications socket connected");
-        });
-        socket.on("disconnect", (reason: string) => {
-          console.log("❌ Notifications socket disconnected:", reason);
-        });
-        socket.on("connect_error", (error: Error) => {
-          console.error("⚠️ Notifications socket connect error:", error);
-        });
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       } catch (error: any) {
         console.error("Error setting up socket in NotificationsScreen:", error);
+        setError("Failed to connect to notifications service.");
         setLoading(false);
       }
     };
@@ -268,58 +315,79 @@ const NotificationsScreen: React.FC = () => {
       const socket = getSocket();
       if (socket) {
         socket.off("newNotification");
-<<<<<<< HEAD
         socket.off("connect");
         socket.off("disconnect");
         socket.off("connect_error");
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       }
     };
   }, []);
 
-<<<<<<< HEAD
-=======
-  console.log("Rendering with loading:", loading);
-
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#668CFF" />
-<<<<<<< HEAD
         <Text style={styles.loadingText}>Loading notifications...</Text>
-=======
-        <Text>Loading notifications...</Text>
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-<<<<<<< HEAD
-      {/* Use the shared Header component */}
       <Header
         title="Notifications"
         onBackPress={() => navigation.goBack()}
-        leftButtonStyle={{ marginLeft: -10 }}
-        titleStyle={{ marginLeft: -10 }}
-        arrowStyle={{ transform: [{ translateX: 10 }] }} // moves the back arrow 10pt to the right
+        leftButtonStyle={{ marginLeft: 0 }}
+        titleStyle={{ marginLeft: "auto", marginRight: "auto" }} // Center the title
+        arrowStyle={{ transform: [{ translateX: 10 }] }}
+        rightComponent={
+          editMode ? (
+            <View style={styles.headerColumnContainerLeft}>
+              <TouchableOpacity style={styles.headerButton} onPress={handleDeleteNotifications}>
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerButton} onPress={markAllAsRead}>
+                <Text style={styles.headerButtonText}>Mark All as Read</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerButton}
+                onPress={() => {
+                  setEditMode(false);
+                  setSelectedNotifs(new Set());
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.headerColumnContainerRight}>
+              <TouchableOpacity
+                style={styles.headerButton}
+                onPress={() => {
+                  setEditMode(true);
+                  setSelectedNotifs(new Set());
+                }}
+              >
+                <Text style={styles.headerButtonText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
+          )
+        }
       />
-
-=======
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
+      {renderNewNotificationBanner()}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={fetchNotifications} style={styles.retryButton}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <FlatList
         data={notifications}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={renderNotification}
         contentContainerStyle={styles.listContent}
-<<<<<<< HEAD
         ListEmptyComponent={<Text style={styles.emptyText}>No notifications available.</Text>}
-=======
-        ListEmptyComponent={<Text>No notifications available.</Text>}
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
       />
     </View>
   );
@@ -328,12 +396,8 @@ const NotificationsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-<<<<<<< HEAD
   loadingText: { marginTop: 10, fontSize: 16, color: "#666", fontFamily: "AirbnbCereal_Lt" },
   listContent: { padding: 10, paddingBottom: 20 },
-=======
-  listContent: { padding: 10 },
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
   notificationContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -342,24 +406,64 @@ const styles = StyleSheet.create({
     borderBottomColor: "#eee",
     width: "100%",
   },
-<<<<<<< HEAD
   readNotification: { backgroundColor: "#f9f9f9" },
   iconContainer: { marginRight: 10 },
   notificationContent: { flex: 1 },
   notificationTitle: { fontSize: 16, fontFamily: "AirbnbCereal_Md", color: "#333" },
-  notificationPreview: { fontSize: 14, fontFamily: "AirbnbCereal_Lt", color: "#666" },
-  notificationTime: { fontSize: 12, fontFamily: "AirbnbCereal_Lt", color: "#666", paddingRight: 10 },
+  notificationTime: { fontSize: 12, fontFamily: "AirbnbCereal_Lt", color: "#666" },
   emptyText: { textAlign: "center", fontSize: 16, color: "#888", fontFamily: "AirbnbCereal_Lt" },
+  banner: {
+    position: "absolute",
+    top: 60,
+    left: 10,
+    right: 10,
+    backgroundColor: "#668CFF",
+    padding: 10,
+    borderRadius: 5,
+    zIndex: 1000,
+  },
+  bannerText: { color: "#fff", textAlign: "center", fontFamily: "AirbnbCereal_Md" },
+  errorContainer: { padding: 10, alignItems: "center" },
+  errorText: { color: "red", fontSize: 16, fontFamily: "AirbnbCereal_Lt" },
+  retryButton: { marginTop: 10, padding: 10, backgroundColor: "#668CFF", borderRadius: 5 },
+  retryText: { color: "#fff", fontFamily: "AirbnbCereal_Md" },
+  headerColumnContainerLeft: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    marginLeft: 0,
+  },
+  headerColumnContainerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end", // Move the Edit button to the right
+    marginRight: 10,
+  },
+  headerButton: {
+    paddingVertical: 5,
+    marginVertical: 2,
+    paddingHorizontal: 5,
+  },
+  headerButtonText: {
+    fontSize: 16,
+    fontFamily: "AirbnbCereal_Md",
+    color: "#000",
+    flexShrink: 0,
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontFamily: "AirbnbCereal_Md",
+    color: "red",
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontFamily: "AirbnbCereal_Md",
+    color: "#000",
+  },
+  checkbox: {
+    fontSize: 18,
+    marginRight: 8,
+    color: "#000",
+  },
 });
 
 export default NotificationsScreen;
-=======
-  iconContainer: { marginRight: 10 },
-  notificationContent: { flex: 1 },
-  notificationTitle: { fontSize: 16, fontWeight: "bold" },
-  notificationPreview: { fontSize: 14, color: "#666" },
-  notificationTime: { fontSize: 12, color: "#666", paddingRight: 10 },
-});
-
-export default NotificationsScreen;
->>>>>>> 3d5c1e9f8ce7ebc2115e7397d18a5809a1f71f7b
